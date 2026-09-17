@@ -17,23 +17,28 @@ describe("HTTP API", () => {
     expect(res.body.sessionId).toBeTruthy();
     expect(res.body.studentPath).toMatch(/^\/s\//);
     expect(res.body.teacherPath).toMatch(/^\/t\//);
+    expect(onLeaderboard).not.toHaveBeenCalled();
   });
 
   it("join + score + leaderboard + reset", async () => {
     const app = createApp(store, { onLeaderboard });
     const { body: created } = await request(app).post("/api/sessions");
+    expect(onLeaderboard).toHaveBeenCalledTimes(0);
     const id = created.sessionId as string;
     const j1 = await request(app).post(`/api/sessions/${id}/join`).expect(201);
     expect(j1.body.name).toBe("组一");
+    expect(onLeaderboard).toHaveBeenCalledTimes(1);
     await request(app)
       .post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`)
       .send({})
       .expect(200)
       .expect(({ body }) => expect(body.score).toBe(2));
+    expect(onLeaderboard).toHaveBeenCalledTimes(2);
     const board = await request(app).get(`/api/sessions/${id}/leaderboard`).expect(200);
     expect(board.body.entries[0].score).toBe(2);
-    expect(onLeaderboard).toHaveBeenCalled();
+    expect(onLeaderboard).toHaveBeenCalledTimes(2);
     await request(app).post(`/api/sessions/${id}/reset`).expect(200);
+    expect(onLeaderboard).toHaveBeenCalledTimes(3);
     const empty = await request(app).get(`/api/sessions/${id}/leaderboard`);
     expect(empty.body.entries).toEqual([]);
   });
@@ -45,6 +50,13 @@ describe("HTTP API", () => {
       .post(`/api/sessions/${body.sessionId}/groups/x/score`)
       .send({})
       .expect(404);
+  });
+
+  it("missing session → 404 on join, leaderboard, reset", async () => {
+    const app = createApp(store);
+    await request(app).post("/api/sessions/missing/join").expect(404);
+    await request(app).get("/api/sessions/missing/leaderboard").expect(404);
+    await request(app).post("/api/sessions/missing/reset").expect(404);
   });
 
   it("rejects score delta other than 2", async () => {
