@@ -3,7 +3,7 @@
   "private": true,
   "workspaces": ["shared", "server", "client"],
   "scripts": {
-    "test": "npm run test -w shared && npm run test -w server && npm run test -w client",
+    "test": "npm run build -w shared && npm run test -w shared && npm run test -w server && npm run test -w client",
     "dev": "npm run dev -w server",
     "build": "npm run build -w shared && npm run build -w client && npm run build -w server"
   }

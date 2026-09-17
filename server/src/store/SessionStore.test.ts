@@ -73,4 +73,20 @@ describe("SessionStore", () => {
     store.createSession();
     expect(store.addScore("fixed-session", "nope")).toEqual({ error: "GROUP_NOT_FOUND" });
   });
+
+  it("join on missing session returns NOT_FOUND", () => {
+    expect(store.join("missing-session")).toEqual({ error: "NOT_FOUND" });
+  });
+
+  it("reset on missing session returns NOT_FOUND", () => {
+    expect(store.reset("missing-session")).toEqual({ error: "NOT_FOUND" });
+  });
+
+  it("leaderboard on missing session returns NOT_FOUND", () => {
+    expect(store.leaderboard("missing-session")).toEqual({ error: "NOT_FOUND" });
+  });
+
+  it("addScore on missing session returns NOT_FOUND", () => {
+    expect(store.addScore("missing-session", "any-group")).toEqual({ error: "NOT_FOUND" });
+  });
 });
