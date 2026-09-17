@@ -1,0 +1,12 @@
+.student-page .plus-btn.pulse {
+  transform: scale(1.05);
+  transition: transform 0.15s ease-out;
+}
+
+.student-page .energy {
+  font-size: 1.5rem;
+}
+
+.student-page .error {
+  color: #c00;
+}
