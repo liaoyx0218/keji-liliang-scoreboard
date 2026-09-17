@@ -1,6 +1,7 @@
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import express from "express";
 import type { LeaderboardPayload } from "@kl/shared";
 import { WebSocketServer } from "ws";
 import { createApp } from "./http/createApp.js";
@@ -20,6 +21,12 @@ const persistAndBroadcast = (payload: LeaderboardPayload) => {
 const app = createApp(store, {
   onLeaderboard: persistAndBroadcast,
   onChange: () => saveStore(dataFile, store),
+});
+
+const clientDist = path.join(__dirname, "../../client/dist");
+app.use(express.static(clientDist));
+app.get(/^(?!\/api)(?!\/ws).*/, (_req, res) => {
+  res.sendFile(path.join(clientDist, "index.html"));
 });
 
 const server = http.createServer(app);
