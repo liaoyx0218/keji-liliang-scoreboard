@@ -14,6 +14,17 @@ describe("JsonFilePersist", () => {
   });
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
+  it("loadStore on missing file returns empty store usable like fresh", () => {
+    const missing = path.join(dir, "does-not-exist.json");
+    expect(fs.existsSync(missing)).toBe(false);
+    const loaded = loadStore(missing);
+    expect(loaded.dump()).toEqual(new SessionStore().dump());
+    const s = loaded.createSession();
+    const board = loaded.leaderboard(s.id);
+    if ("error" in board) throw new Error("expected session");
+    expect(board).toMatchObject({ type: "leaderboard", sessionId: s.id, entries: [] });
+  });
+
   it("round-trips session and scores", () => {
     const store = new SessionStore();
     const s = store.createSession();
