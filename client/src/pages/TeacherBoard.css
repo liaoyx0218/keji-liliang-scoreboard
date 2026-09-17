@@ -1,0 +1,16 @@
+.teacher-board header {
+  position: relative;
+}
+
+.teacher-board .secret-reset {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  opacity: 0.15;
+  cursor: pointer;
+  background: currentColor;
+}

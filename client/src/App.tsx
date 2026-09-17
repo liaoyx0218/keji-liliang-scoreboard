@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
 import { CreatePage } from "./pages/CreatePage";
+import { TeacherBoard } from "./pages/TeacherBoard";
 
 function RoutePlaceholder({ label }: { label: string }) {
   const { sessionId } = useParams();
@@ -16,7 +17,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<CreatePage />} />
-        <Route path="/t/:sessionId" element={<RoutePlaceholder label="教师大屏" />} />
+        <Route path="/t/:sessionId" element={<TeacherBoard />} />
         <Route path="/s/:sessionId" element={<RoutePlaceholder label="学生端" />} />
       </Routes>
     </BrowserRouter>
