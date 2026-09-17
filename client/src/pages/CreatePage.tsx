@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 import { createSession } from "../api";
 
 export function CreatePage() {
@@ -8,11 +8,12 @@ export function CreatePage() {
   );
   const [err, setErr] = useState("");
   const [copyFeedback, setCopyFeedback] = useState("");
-  const linkRef = useRef<HTMLElement>(null);
+  const qrWrapRef = useRef<HTMLDivElement>(null);
 
   async function onCreate() {
     try {
       setErr("");
+      setCopyFeedback("");
       const data = await createSession();
       const origin = window.location.origin;
       setInfo({
@@ -25,47 +26,41 @@ export function CreatePage() {
     }
   }
 
-  async function copyStudentLink(url: string) {
+  function downloadQrPng(blob: Blob) {
+    const a = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = "学生端二维码.png";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function copyQrCode() {
     setCopyFeedback("");
+    const canvas = qrWrapRef.current?.querySelector("canvas");
+    if (!canvas) {
+      setCopyFeedback("还没有二维码，请先创建本场");
+      return;
+    }
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/png")
+    );
+    if (!blob) {
+      setCopyFeedback("生成图片失败，请重试");
+      return;
+    }
+
     try {
-      await navigator.clipboard.writeText(url);
-      setCopyFeedback("已复制");
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setCopyFeedback("已复制二维码，可粘贴到课件");
       return;
     } catch {
-      /* secure context / permission — fall through */
+      /* HTTP / permission — fall through to download */
     }
 
-    const ta = document.createElement("textarea");
-    ta.value = url;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.left = "-9999px";
-    document.body.appendChild(ta);
-    ta.select();
-    let copied = false;
-    try {
-      copied = document.execCommand("copy");
-    } finally {
-      document.body.removeChild(ta);
-    }
-    if (copied) {
-      setCopyFeedback("已复制");
-      return;
-    }
-
-    const el = linkRef.current;
-    if (el) {
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-      setCopyFeedback("已选中，请手动复制");
-      return;
-    }
-
-    window.prompt("请复制链接", url);
-    setCopyFeedback("复制失败，请手动复制");
+    downloadQrPng(blob);
+    setCopyFeedback("浏览器不支持复制图片，已下载二维码");
   }
 
   return (
@@ -79,14 +74,14 @@ export function CreatePage() {
       {info && (
         <section>
           <p>学生端链接（唯一）：</p>
-          <code ref={linkRef}>{info.studentUrl}</code>
-          <button type="button" onClick={() => void copyStudentLink(info.studentUrl)}>
-            复制链接
+          <code>{info.studentUrl}</code>
+          <div className="qr-wrap" ref={qrWrapRef}>
+            <QRCodeCanvas value={info.studentUrl} size={256} includeMargin />
+          </div>
+          <button type="button" onClick={() => void copyQrCode()}>
+            复制二维码
           </button>
           {copyFeedback && <p className="copy-feedback">{copyFeedback}</p>}
-          <div className="qr-wrap">
-            <QRCodeSVG value={info.studentUrl} size={256} />
-          </div>
           <a href={info.teacherUrl} target="_blank" rel="noreferrer">
             打开大屏
           </a>

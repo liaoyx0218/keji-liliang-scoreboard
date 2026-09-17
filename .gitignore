@@ -5,3 +5,5 @@ server/data/
 .DS_Store
 .worktrees/
 .superpowers/
+
+.deploy/
