@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { addScore, fetchLeaderboard, joinSession } from "../api";
+import { addScore, fetchLeaderboard, isNeedRejoinError, joinSession, wsUrl } from "../api";
 import { clearBinding, loadBinding, saveBinding } from "../storage";
 import "./StudentPage.css";
 
@@ -56,6 +56,44 @@ export function StudentPage() {
     void ensureGroup();
   }, [ensureGroup]);
 
+  useEffect(() => {
+    if (mode !== "play") return;
+    const binding = loadBinding(sessionId);
+    if (!binding) return;
+
+    let dead = false;
+    let ws: WebSocket | undefined;
+
+    const onStaleReset = () => {
+      if (!dead) setMode("needRejoin");
+    };
+
+    ws = new WebSocket(wsUrl(sessionId));
+    ws.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data) as { type?: string; resetAt?: string };
+      if (msg.type === "leaderboard" && msg.resetAt && msg.resetAt !== binding.resetAt) {
+        onStaleReset();
+      }
+    };
+
+    const poll = window.setInterval(() => {
+      void (async () => {
+        try {
+          const snap = await fetchLeaderboard(sessionId);
+          if (!dead && snap.resetAt !== binding.resetAt) onStaleReset();
+        } catch {
+          /* ignore transient errors */
+        }
+      })();
+    }, 15_000);
+
+    return () => {
+      dead = true;
+      ws?.close();
+      window.clearInterval(poll);
+    };
+  }, [mode, sessionId]);
+
   async function onRejoin() {
     clearBinding(sessionId);
     await doJoin();
@@ -69,7 +107,11 @@ export function StudentPage() {
       setGroup((g) => (g ? { ...g, score: r.score } : g));
       setPulse(true);
       window.setTimeout(() => setPulse(false), 300);
-    } catch {
+    } catch (e) {
+      if (isNeedRejoinError(e)) {
+        setMode("needRejoin");
+        return;
+      }
       setFailMsg("没加上，再试一次");
     }
   }
