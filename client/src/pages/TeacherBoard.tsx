@@ -214,8 +214,7 @@ export function TeacherBoard() {
           onPointerLeave={cancelLongPress}
           onPointerCancel={cancelLongPress}
         >
-          <span className="clear-scores-label">长按 3 秒清空能量</span>
-          <span className="clear-scores-hint">组保留，分数归零</span>
+          清空能量
           {clearProgress > 0 && (
             <span
               className="clear-scores-progress"
