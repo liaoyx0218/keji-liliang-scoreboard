@@ -20,6 +20,8 @@ export class SessionStore {
   ) {}
 
   createSession(): Session {
+    this.sessions.clear();
+    this.groups.clear();
     const ts = this.now();
     const session: Session = {
       id: this.newSessionId(),
@@ -31,6 +33,11 @@ export class SessionStore {
     this.sessions.set(session.id, session);
     this.groups.set(session.id, []);
     return session;
+  }
+
+  /** IDs of sessions that will be wiped by the next createSession — for WS notify. */
+  listSessionIds(): string[] {
+    return [...this.sessions.keys()];
   }
 
   getSession(sessionId: string): Session | undefined {

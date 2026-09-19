@@ -23,7 +23,16 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   };
 
   app.post("/api/sessions", (_req, res) => {
+    const previousIds = store.listSessionIds();
     const s = store.createSession();
+    for (const oldId of previousIds) {
+      opts?.onLeaderboard?.({
+        type: "leaderboard",
+        sessionId: oldId,
+        resetAt: s.resetAt,
+        entries: [],
+      });
+    }
     notifyChange();
     res.status(201).json({
       sessionId: s.id,

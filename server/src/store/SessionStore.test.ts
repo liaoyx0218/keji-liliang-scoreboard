@@ -20,6 +20,28 @@ describe("SessionStore", () => {
     expect(s.resetAt).toBe(s.createdAt);
   });
 
+  it("createSession clears all previous sessions and groups", () => {
+    let n = 0;
+    store = new SessionStore(
+      () => `sess-${++n}`,
+      () => `g-${n}`,
+      () => "2026-01-01T00:00:00.000Z"
+    );
+    store.createSession();
+    store.join("sess-1");
+    const g = store.join("sess-1");
+    if (!("group" in g)) throw new Error("join");
+    store.addScore("sess-1", g.group.id);
+
+    const second = store.createSession();
+    expect(second.id).toBe("sess-2");
+    expect(store.getSession("sess-1")).toBeUndefined();
+    expect(store.leaderboard("sess-1")).toEqual({ error: "NOT_FOUND" });
+    expect(store.leaderboard("sess-2")).toMatchObject({ entries: [] });
+    const again = store.join("sess-2");
+    expect("group" in again && again.group.seq).toBe(1);
+  });
+
   it("join assigns 组一 then 组二", () => {
     store.createSession();
     const a = store.join("fixed-session");

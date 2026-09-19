@@ -20,6 +20,24 @@ describe("HTTP API", () => {
     expect(onLeaderboard).not.toHaveBeenCalled();
   });
 
+  it("creating a new session wipes previous session data", async () => {
+    const app = createApp(store, { onLeaderboard });
+    const { body: first } = await request(app).post("/api/sessions");
+    const id1 = first.sessionId as string;
+    const j1 = await request(app).post(`/api/sessions/${id1}/join`);
+    await request(app).post(`/api/sessions/${id1}/groups/${j1.body.groupId}/score`).send({});
+    onLeaderboard.mockClear();
+
+    const { body: second } = await request(app).post("/api/sessions").expect(201);
+    expect(second.sessionId).not.toBe(id1);
+    await request(app).get(`/api/sessions/${id1}/leaderboard`).expect(404);
+    const empty = await request(app).get(`/api/sessions/${second.sessionId}/leaderboard`).expect(200);
+    expect(empty.body.entries).toEqual([]);
+    expect(onLeaderboard).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: id1, entries: [] })
+    );
+  });
+
   it("join + score + leaderboard + reset", async () => {
     const app = createApp(store, { onLeaderboard });
     const { body: created } = await request(app).post("/api/sessions");
