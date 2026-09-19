@@ -30,20 +30,139 @@ body {
   font-family: var(--font-body);
   background-color: var(--bg);
   background-image:
-    linear-gradient(rgba(0, 229, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 229, 255, 0.06) 1px, transparent 1px),
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 120, 200, 0.35), transparent);
-  background-size: 32px 32px, 32px 32px, 100% 100%;
+    radial-gradient(ellipse 90% 60% at 10% 100%, rgba(0, 180, 200, 0.12), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 90% 10%, rgba(255, 200, 80, 0.06), transparent 45%),
+    linear-gradient(rgba(0, 229, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.055) 1px, transparent 1px),
+    radial-gradient(ellipse 80% 50% at 50% -15%, rgba(0, 130, 210, 0.4), transparent 55%);
+  background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px, 100% 100%;
+  background-attachment: fixed;
 }
 
 #root {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Ambient floating energy dots */
+#root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, rgba(0, 229, 255, 0.55) 0 1.5px, transparent 2px),
+    radial-gradient(circle, rgba(255, 213, 79, 0.4) 0 1px, transparent 2px),
+    radial-gradient(circle, rgba(0, 229, 255, 0.35) 0 1px, transparent 2px);
+  background-size: 180px 220px, 140px 160px, 220px 180px;
+  background-position: 12% 18%, 78% 32%, 42% 72%;
+  opacity: 0.55;
+  animation: ambient-drift 28s linear infinite;
+}
+
+/* Soft vignette + scan sheen */
+#root::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 75% 70% at 50% 45%, transparent 40%, rgba(2, 6, 14, 0.55) 100%),
+    linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(0, 229, 255, 0.03) 50%,
+      transparent 100%
+    );
+  background-size: 100% 100%, 100% 220%;
+  animation: scan-sheen 12s ease-in-out infinite;
+}
+
+.page {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes ambient-drift {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-36px);
+  }
+}
+
+@keyframes scan-sheen {
+  0%,
+  100% {
+    background-position: 0 0, 0 0%;
+  }
+  50% {
+    background-position: 0 0, 0 100%;
+  }
+}
+
+@keyframes canvas-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root::before,
+  #root::after {
+    animation: none;
+  }
+
+  .student-action::before {
+    animation: none;
+  }
 }
 
 .page {
   max-width: 720px;
   margin: 0 auto;
   padding: 1.5rem 1.25rem 2.5rem;
+}
+
+/* Corner tech brackets (decorative) */
+.page.teacher-board::before,
+.page.student-page::before,
+.page.create-page::before {
+  content: "";
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  z-index: 0;
+  pointer-events: none;
+  border-top: 2px solid rgba(0, 229, 255, 0.35);
+  border-left: 2px solid rgba(0, 229, 255, 0.35);
+  opacity: 0.7;
+}
+
+.page.teacher-board::after,
+.page.student-page::after,
+.page.create-page::after {
+  content: "";
+  position: fixed;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  z-index: 0;
+  pointer-events: none;
+  border-bottom: 2px solid rgba(0, 229, 255, 0.35);
+  border-right: 2px solid rgba(0, 229, 255, 0.35);
+  opacity: 0.7;
 }
 
 .page h1 {
@@ -104,11 +223,25 @@ body {
 }
 
 .create-page section {
+  position: relative;
   margin-top: 1.5rem;
   padding: 1.25rem;
   background: var(--bg-panel);
   border: 1px solid rgba(0, 229, 255, 0.25);
   border-radius: 12px;
+  box-shadow: 0 0 40px rgba(0, 120, 180, 0.12);
+  overflow: hidden;
+}
+
+.create-page section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), #ffd54f, transparent);
+  opacity: 0.8;
 }
 
 .create-page code {
