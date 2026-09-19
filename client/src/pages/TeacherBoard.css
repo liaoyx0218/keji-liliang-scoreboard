@@ -119,6 +119,7 @@
   border-radius: 50%;
   text-align: center;
   padding: 0.35rem;
+  will-change: transform;
   background: radial-gradient(
     circle at 35% 30%,
     rgba(0, 229, 255, 0.45),
@@ -129,8 +130,9 @@
   box-shadow:
     0 0 calc(12px + 28px * var(--bubble-glow)) rgba(0, 229, 255, calc(0.25 + var(--bubble-glow) * 0.35)),
     inset 0 0 16px rgba(0, 229, 255, 0.12);
-  animation: bubble-breathe 4s ease-in-out infinite;
-  transition: transform 0.35s ease, box-shadow 0.35s ease;
+  animation: bubble-float var(--float-dur, 6.5s) ease-in-out infinite;
+  animation-delay: var(--float-delay, 0s);
+  transition: box-shadow 0.35s ease;
 }
 
 .teacher-board .energy-bubble.score-pulse {
@@ -151,15 +153,22 @@
   margin-top: 0.15rem;
 }
 
-@keyframes bubble-breathe {
+@keyframes bubble-float {
   0%,
   100% {
-    transform: scale(1);
-    opacity: 1;
+    transform: translate(0, 0) scale(1);
   }
-  50% {
-    transform: scale(1.015);
-    opacity: 0.97;
+  20% {
+    transform: translate(8px, -12px) scale(1.03);
+  }
+  40% {
+    transform: translate(-6px, -18px) scale(1.02);
+  }
+  60% {
+    transform: translate(-12px, -8px) scale(1.035);
+  }
+  80% {
+    transform: translate(5px, -14px) scale(1.02);
   }
 }
 

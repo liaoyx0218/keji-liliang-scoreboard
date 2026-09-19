@@ -235,6 +235,8 @@ export function TeacherBoard() {
             if (!p) return null;
             const glow =
               0.2 + ((p.size - SIZE_MIN) / Math.max(1, SIZE_MAX - SIZE_MIN)) * 0.8;
+            const floatDur = `${5.5 + (e.seq % 5) * 0.7}s`;
+            const floatDelay = `${-((e.seq * 0.85) % 6)}s`;
             return (
               <div
                 key={e.groupId}
@@ -245,6 +247,8 @@ export function TeacherBoard() {
                   width: p.size,
                   height: p.size,
                   ["--bubble-glow" as string]: String(glow),
+                  ["--float-dur" as string]: floatDur,
+                  ["--float-delay" as string]: floatDelay,
                 }}
               >
                 <span className="bubble-name">{e.name}</span>
