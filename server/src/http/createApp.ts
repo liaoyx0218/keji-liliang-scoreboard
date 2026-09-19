@@ -72,5 +72,15 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
     res.json({ resetAt: result.resetAt, entries: [] });
   });
 
+  app.post("/api/sessions/:sessionId/clear-scores", (req, res) => {
+    const result = store.clearScores(req.params.sessionId);
+    if ("error" in result) return res.status(404).json({ error: result.error });
+    notifyChange();
+    broadcast(req.params.sessionId);
+    const payload = store.leaderboard(req.params.sessionId);
+    if ("error" in payload) return res.status(404).json({ error: payload.error });
+    res.json(payload);
+  });
+
   return app;
 }

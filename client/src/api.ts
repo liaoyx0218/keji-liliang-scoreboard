@@ -56,6 +56,10 @@ export async function resetSession(sessionId: string) {
   return json(await fetch(`/api/sessions/${sessionId}/reset`, { method: "POST" }));
 }
 
+export async function clearScores(sessionId: string) {
+  return json(await fetch(`/api/sessions/${sessionId}/clear-scores`, { method: "POST" }));
+}
+
 export function wsUrl(sessionId: string) {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   return `${proto}://${location.host}/ws?sessionId=${encodeURIComponent(sessionId)}`;

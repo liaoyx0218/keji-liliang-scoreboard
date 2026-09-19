@@ -70,6 +70,15 @@ export class SessionStore {
     return session;
   }
 
+  clearScores(sessionId: string) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return { error: "NOT_FOUND" as const };
+    for (const g of this.groups.get(sessionId) ?? []) {
+      g.score = 0;
+    }
+    return session;
+  }
+
   leaderboard(sessionId: string): LeaderboardPayload | { error: "NOT_FOUND" } {
     const session = this.sessions.get(sessionId);
     if (!session) return { error: "NOT_FOUND" };

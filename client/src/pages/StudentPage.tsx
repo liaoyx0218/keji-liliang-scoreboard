@@ -147,17 +147,24 @@ export function StudentPage() {
   }
 
   return (
-    <main className="page student-page">
-      <h1>{group!.name}</h1>
-      <p className="energy">能量 {group!.score}</p>
-      <button
-        type="button"
-        className={pulse ? "plus-btn pulse" : "plus-btn"}
-        onClick={() => void onPlus()}
-      >
-        能量 +2
-      </button>
-      {failMsg && <p className="error">{failMsg}</p>}
+    <main className="page student-page student-page--play">
+      <header className="student-top">科技力量大</header>
+      <div className="student-landscape">
+        <section className="student-info">
+          <h1>{group!.name}</h1>
+          <p className="energy">能量 {group!.score}</p>
+          {failMsg && <p className="error">{failMsg}</p>}
+        </section>
+        <section className="student-action">
+          <button
+            type="button"
+            className={pulse ? "plus-btn pulse" : "plus-btn"}
+            onClick={() => void onPlus()}
+          >
+            能量 +2
+          </button>
+        </section>
+      </div>
     </main>
   );
 }

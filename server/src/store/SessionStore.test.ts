@@ -89,4 +89,26 @@ describe("SessionStore", () => {
   it("addScore on missing session returns NOT_FOUND", () => {
     expect(store.addScore("missing-session", "any-group")).toEqual({ error: "NOT_FOUND" });
   });
+
+  it("clearScores zeros all scores without changing resetAt or group count", () => {
+    store.createSession();
+    const g1 = store.join("fixed-session");
+    const g2 = store.join("fixed-session");
+    if (!("group" in g1) || !("group" in g2)) throw new Error("join failed");
+    store.addScore("fixed-session", g1.group.id);
+    store.addScore("fixed-session", g2.group.id);
+    store.addScore("fixed-session", g2.group.id);
+    const resetAtBefore = store.getSession("fixed-session")!.resetAt;
+    const result = store.clearScores("fixed-session");
+    if ("error" in result) throw new Error("clearScores failed");
+    expect(store.getSession("fixed-session")!.resetAt).toBe(resetAtBefore);
+    const board = store.leaderboard("fixed-session");
+    if ("error" in board) throw new Error("board missing");
+    expect(board.entries).toHaveLength(2);
+    expect(board.entries.every((e) => e.score === 0)).toBe(true);
+  });
+
+  it("clearScores on missing session returns NOT_FOUND", () => {
+    expect(store.clearScores("missing-session")).toEqual({ error: "NOT_FOUND" });
+  });
 });

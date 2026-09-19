@@ -59,6 +59,26 @@ describe("HTTP API", () => {
     await request(app).post("/api/sessions/missing/reset").expect(404);
   });
 
+  it("clear-scores zeros scores and keeps groups", async () => {
+    const app = createApp(store, { onLeaderboard });
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const before = await request(app).get(`/api/sessions/${id}/leaderboard`);
+    const resetAtBefore = before.body.resetAt as string;
+    const j1 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app).post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`).send({});
+    const cleared = await request(app).post(`/api/sessions/${id}/clear-scores`).expect(200);
+    expect(cleared.body.resetAt).toBe(resetAtBefore);
+    expect(cleared.body.entries).toHaveLength(1);
+    expect(cleared.body.entries[0].score).toBe(0);
+    expect(onLeaderboard).toHaveBeenCalled();
+  });
+
+  it("clear-scores on missing session → 404", async () => {
+    const app = createApp(store);
+    await request(app).post("/api/sessions/missing/clear-scores").expect(404);
+  });
+
   it("rejects score delta other than 2", async () => {
     const app = createApp(store);
     const { body: created } = await request(app).post("/api/sessions");

@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { fetchLeaderboard, resetSession, wsUrl } from "../api";
+import { clearScores, fetchLeaderboard, resetSession, wsUrl } from "../api";
+import { layoutBubbles } from "../lib/bubbleLayout";
 import type { LeaderboardEntry } from "@kl/shared";
 import "./TeacherBoard.css";
 
 const WS_BACKOFF_MS = [1000, 2000, 4000, 8000, 10000];
+const LONG_PRESS_MS = 3000;
 
 const PLACE_LABEL = ["冠军", "亚军", "季军"] as const;
 const PLACE_MEDAL = ["🥇", "🥈", "🥉"] as const;
@@ -14,9 +16,51 @@ export function TeacherBoard() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [showAward, setShowAward] = useState(false);
   const [awardStep, setAwardStep] = useState(0);
+  const [canvasSize, setCanvasSize] = useState({ w: 900, h: 480 });
+  const [clearProgress, setClearProgress] = useState(0);
+  const [clearedMsg, setClearedMsg] = useState("");
+  const [pulseIds, setPulseIds] = useState<Set<string>>(new Set());
   const clicks = useRef<{ n: number; t: number }>({ n: 0, t: 0 });
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const prevScores = useRef<Map<string, number>>(new Map());
+  const longPressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const longPressStart = useRef(0);
 
   const topThree = entries.slice(0, 3);
+
+  const placements = useMemo(
+    () => layoutBubbles(entries, canvasSize.w, canvasSize.h),
+    [entries, canvasSize.w, canvasSize.h]
+  );
+
+  const placementById = useMemo(() => new Map(placements.map((p) => [p.groupId, p])), [placements]);
+
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setCanvasSize({ w: Math.floor(width), h: Math.floor(height) });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [entries.length]);
+
+  useEffect(() => {
+    const next = new Map<string, number>();
+    const pulsing = new Set<string>();
+    for (const e of entries) {
+      const prev = prevScores.current.get(e.groupId);
+      if (prev !== undefined && prev !== e.score) pulsing.add(e.groupId);
+      next.set(e.groupId, e.score);
+    }
+    prevScores.current = next;
+    if (pulsing.size > 0) {
+      setPulseIds(pulsing);
+      const t = window.setTimeout(() => setPulseIds(new Set()), 400);
+      return () => clearTimeout(t);
+    }
+  }, [entries]);
 
   useEffect(() => {
     let dead = false;
@@ -53,7 +97,6 @@ export function TeacherBoard() {
         if (!dead) setEntries(snap.entries);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
-        /* session missing */
       }
       if (dead) return;
       connectWs();
@@ -73,7 +116,6 @@ export function TeacherBoard() {
       return;
     }
     const timers: ReturnType<typeof setTimeout>[] = [];
-    // step 1 title, then reveal 3rd→2nd→1st (indices from end of topThree)
     timers.push(setTimeout(() => setAwardStep(1), 400));
     const n = Math.min(3, topThree.length);
     for (let i = 0; i < n; i++) {
@@ -82,6 +124,45 @@ export function TeacherBoard() {
     timers.push(setTimeout(() => setAwardStep(5), 1200 + n * 1100 + 400));
     return () => timers.forEach(clearTimeout);
   }, [showAward, topThree.length]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) clearInterval(longPressTimer.current);
+    };
+  }, []);
+
+  function cancelLongPress() {
+    if (longPressTimer.current) {
+      clearInterval(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    setClearProgress(0);
+  }
+
+  async function finishClearScores() {
+    cancelLongPress();
+    try {
+      const snap = await clearScores(sessionId);
+      setEntries(snap.entries);
+      setClearedMsg("已全部清零");
+      window.setTimeout(() => setClearedMsg(""), 3000);
+    } catch {
+      setClearedMsg("清零失败，请重试");
+      window.setTimeout(() => setClearedMsg(""), 3000);
+    }
+  }
+
+  function onClearPointerDown() {
+    if (entries.length === 0) return;
+    cancelLongPress();
+    longPressStart.current = Date.now();
+    longPressTimer.current = setInterval(() => {
+      const elapsed = Date.now() - longPressStart.current;
+      const p = Math.min(100, (elapsed / LONG_PRESS_MS) * 100);
+      setClearProgress(p);
+      if (p >= 100) void finishClearScores();
+    }, 50);
+  }
 
   async function onSecretClick() {
     const now = Date.now();
@@ -102,17 +183,14 @@ export function TeacherBoard() {
     setShowAward(true);
   }
 
-  /** Reveal order: 3rd place first, then 2nd, then 1st */
   function revealedPlaces(): { entry: LeaderboardEntry; placeIndex: number }[] {
     const n = topThree.length;
     const out: { entry: LeaderboardEntry; placeIndex: number }[] = [];
-    // awardStep 2 → show last of top3 (3rd if 3 teams), step 3 → mid, step 4 → first
     const revealedCount = Math.max(0, Math.min(n, awardStep - 1));
     for (let k = 0; k < revealedCount; k++) {
-      const placeIndex = n - 1 - k; // from worst of top3 toward champion
+      const placeIndex = n - 1 - k;
       out.push({ entry: topThree[placeIndex], placeIndex });
     }
-    // display champion last visually at top: reverse so 1st appears first in DOM when all revealed
     return out.slice().reverse();
   }
 
@@ -127,20 +205,54 @@ export function TeacherBoard() {
         <button type="button" className="award-btn" onClick={openAward} disabled={entries.length === 0}>
           颁发科技小达人
         </button>
+        <button
+          type="button"
+          className="clear-scores-btn"
+          disabled={entries.length === 0}
+          onPointerDown={onClearPointerDown}
+          onPointerUp={cancelLongPress}
+          onPointerLeave={cancelLongPress}
+          onPointerCancel={cancelLongPress}
+        >
+          <span className="clear-scores-label">长按 3 秒清空能量</span>
+          <span className="clear-scores-hint">组保留，分数归零</span>
+          {clearProgress > 0 && (
+            <span
+              className="clear-scores-progress"
+              style={{ width: `${clearProgress}%` }}
+              aria-hidden
+            />
+          )}
+        </button>
+        {clearedMsg && <p className="cleared-toast">{clearedMsg}</p>}
       </div>
 
       {entries.length === 0 ? (
         <p className="empty">等待小组加入…</p>
       ) : (
-        <ol className="rank-list">
-          {entries.map((e, i) => (
-            <li key={e.groupId} className={i === 0 ? "lead" : undefined}>
-              <span className="rank">{i + 1}</span>
-              <span className="name">{e.name}</span>
-              <span className="score">{e.score}</span>
-            </li>
-          ))}
-        </ol>
+        <div className="bubble-canvas" ref={canvasRef}>
+          {entries.map((e) => {
+            const p = placementById.get(e.groupId);
+            if (!p) return null;
+            const glow = 0.35 + (p.size - 88) / (168 - 88) * 0.65;
+            return (
+              <div
+                key={e.groupId}
+                className={`energy-bubble${pulseIds.has(e.groupId) ? " score-pulse" : ""}`}
+                style={{
+                  left: p.x,
+                  top: p.y,
+                  width: p.size,
+                  height: p.size,
+                  ["--bubble-glow" as string]: String(glow),
+                }}
+              >
+                <span className="bubble-name">{e.name}</span>
+                <span className="bubble-score">{e.score}</span>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {showAward && (
@@ -153,18 +265,11 @@ export function TeacherBoard() {
         >
           <div className="award-stage" onClick={(e) => e.stopPropagation()}>
             <div className="award-burst" aria-hidden />
-            {awardStep >= 1 && (
-              <p className="award-title pop-in">科技小达人</p>
-            )}
-            {awardStep >= 1 && (
-              <p className="award-sub pop-in">能量榜前三名 · 颁发勋章</p>
-            )}
+            {awardStep >= 1 && <p className="award-title pop-in">科技小达人</p>}
+            {awardStep >= 1 && <p className="award-sub pop-in">能量榜前三名 · 颁发勋章</p>}
             <ul className="award-list">
               {revealedPlaces().map(({ entry, placeIndex }) => (
-                <li
-                  key={entry.groupId}
-                  className={`award-card place-${placeIndex} pop-in`}
-                >
+                <li key={entry.groupId} className={`award-card place-${placeIndex} pop-in`}>
                   <span className="medal" aria-hidden>
                     {PLACE_MEDAL[placeIndex]}
                   </span>
