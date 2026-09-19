@@ -7,10 +7,12 @@ export type BubblePlacement = {
   size: number;
 };
 
-const SIZE_MIN = 88;
-const SIZE_MAX = 168;
+const SIZE_MIN = 64;
+const SIZE_MAX = 210;
 const MARGIN = 16;
 const MIN_GAP = 8;
+
+export { SIZE_MIN, SIZE_MAX };
 
 function hashSeed(s: string): number {
   let h = 2166136261;
@@ -21,15 +23,22 @@ function hashSeed(s: string): number {
   return h >>> 0;
 }
 
-/** Map score to bubble diameter (px). */
+/** Map score to bubble diameter (px). Low ≈ min, leader ≈ max. */
 export function scoreToSize(score: number, maxScore: number, count: number): number {
   let min = SIZE_MIN;
   let max = SIZE_MAX;
-  if (count > 12) min = 72;
-  if (count <= 6) max = 180;
-  if (maxScore <= 0) return min + (max - min) * 0.35;
-  const t = Math.min(1, score / maxScore);
-  return Math.round(min + (max - min) * (0.35 + 0.65 * t));
+  if (count > 12) {
+    min = 52;
+    max = 160;
+  } else if (count <= 6) {
+    min = 72;
+    max = 230;
+  }
+  if (maxScore <= 0) return min;
+  const t = Math.min(1, Math.max(0, score / maxScore));
+  // Emphasize gap: near-zero stays small, leaders grow fast
+  const eased = Math.pow(t, 0.75);
+  return Math.round(min + (max - min) * eased);
 }
 
 export function layoutBubbles(

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { clearScores, fetchLeaderboard, resetSession, wsUrl } from "../api";
-import { layoutBubbles } from "../lib/bubbleLayout";
+import { layoutBubbles, SIZE_MAX, SIZE_MIN } from "../lib/bubbleLayout";
 import type { LeaderboardEntry } from "@kl/shared";
 import "./TeacherBoard.css";
 
@@ -233,7 +233,8 @@ export function TeacherBoard() {
           {entries.map((e) => {
             const p = placementById.get(e.groupId);
             if (!p) return null;
-            const glow = 0.35 + (p.size - 88) / (168 - 88) * 0.65;
+            const glow =
+              0.2 + ((p.size - SIZE_MIN) / Math.max(1, SIZE_MAX - SIZE_MIN)) * 0.8;
             return (
               <div
                 key={e.groupId}

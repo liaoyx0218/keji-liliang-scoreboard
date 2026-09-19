@@ -3,14 +3,17 @@ import { scoreToSize, layoutBubbles } from "./bubbleLayout";
 import type { LeaderboardEntry } from "@kl/shared";
 
 describe("scoreToSize", () => {
-  it("returns min-ish size for score 0", () => {
+  it("keeps score 0 near the small end", () => {
     const s = scoreToSize(0, 10, 8);
-    expect(s).toBeGreaterThanOrEqual(88);
-    expect(s).toBeLessThanOrEqual(120);
+    expect(s).toBeGreaterThanOrEqual(64);
+    expect(s).toBeLessThanOrEqual(80);
   });
 
-  it("returns larger size for leader", () => {
-    expect(scoreToSize(20, 20, 8)).toBeGreaterThan(scoreToSize(0, 20, 8));
+  it("makes leader much larger than zero", () => {
+    const low = scoreToSize(0, 20, 8);
+    const high = scoreToSize(20, 20, 8);
+    expect(high).toBeGreaterThan(low + 80);
+    expect(high).toBeGreaterThanOrEqual(180);
   });
 });
 
