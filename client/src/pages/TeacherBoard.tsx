@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { clearScores, fetchLeaderboard, resetSession, wsUrl } from "../api";
+import { TechBackdrop } from "../components/TechBackdrop";
 import { layoutBubbles, SIZE_MAX, SIZE_MIN } from "../lib/bubbleLayout";
 import type { LeaderboardEntry } from "@kl/shared";
 import "./TeacherBoard.css";
@@ -196,6 +197,7 @@ export function TeacherBoard() {
 
   return (
     <main className="page teacher-board">
+      <TechBackdrop />
       <header>
         <h1>科技力量大 · 小组能量榜</h1>
         <button type="button" className="secret-reset" aria-label="init" onClick={onSecretClick} />

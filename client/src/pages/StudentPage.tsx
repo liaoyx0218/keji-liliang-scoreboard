@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { addScore, fetchLeaderboard, isNeedRejoinError, joinSession, wsUrl } from "../api";
+import { TechBackdrop } from "../components/TechBackdrop";
 import { clearBinding, loadBinding, saveBinding } from "../storage";
 import "./StudentPage.css";
 
@@ -119,6 +120,7 @@ export function StudentPage() {
   if (mode === "loading") {
     return (
       <main className="page student-page">
+        <TechBackdrop />
         <p>加载中…</p>
       </main>
     );
@@ -127,6 +129,7 @@ export function StudentPage() {
   if (mode === "error") {
     return (
       <main className="page student-page">
+        <TechBackdrop />
         <p className="error">无法加入本场，请检查链接或稍后重试。</p>
         <button type="button" onClick={() => void ensureGroup()}>
           重试
@@ -138,6 +141,7 @@ export function StudentPage() {
   if (mode === "needRejoin") {
     return (
       <main className="page student-page">
+        <TechBackdrop />
         <p>本场已重新开始，点一下重新加入</p>
         <button type="button" onClick={() => void onRejoin()}>
           重新加入
@@ -148,6 +152,7 @@ export function StudentPage() {
 
   return (
     <main className="page student-page student-page--play">
+      <TechBackdrop />
       <header className="student-top">科技力量大</header>
       <div className="student-landscape">
         <section className="student-info">
