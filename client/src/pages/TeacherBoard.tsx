@@ -199,8 +199,9 @@ export function TeacherBoard() {
     <main className="page teacher-board">
       <TechBackdrop />
       <header>
+        <span className="brand-kicker">科技力 × 能量场</span>
         <h1>科技力量大 · 小组能量榜</h1>
-        <button type="button" className="secret-reset" aria-label="init" onClick={onSecretClick} />
+        <button type="button" className="secret-reset" aria-label="隐式初始化" onClick={onSecretClick} />
       </header>
 
       <div className="board-actions">
@@ -229,7 +230,10 @@ export function TeacherBoard() {
       </div>
 
       {entries.length === 0 ? (
-        <p className="empty">等待小组加入…</p>
+        <div className="empty-panel" role="status">
+          <p className="empty-title">能量场待机中</p>
+          <p className="empty">等待小组扫码加入，气泡将在此汇聚…</p>
+        </div>
       ) : (
         <div className="bubble-canvas" ref={canvasRef}>
           {entries.map((e) => {

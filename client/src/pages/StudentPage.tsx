@@ -121,7 +121,10 @@ export function StudentPage() {
     return (
       <main className="page student-page">
         <TechBackdrop />
-        <p>加载中…</p>
+        <div className="status-block" role="status" aria-live="polite">
+          <span className="status-kicker">CONNECT</span>
+          <p className="loading-dots">正在接入能量场</p>
+        </div>
       </main>
     );
   }
@@ -130,10 +133,15 @@ export function StudentPage() {
     return (
       <main className="page student-page">
         <TechBackdrop />
-        <p className="error">无法加入本场，请检查链接或稍后重试。</p>
-        <button type="button" onClick={() => void ensureGroup()}>
-          重试
-        </button>
+        <div className="status-block">
+          <span className="status-kicker">ERROR</span>
+          <p className="error" role="alert">
+            无法加入本场，请检查链接或稍后重试。
+          </p>
+          <button type="button" onClick={() => void ensureGroup()}>
+            重试
+          </button>
+        </div>
       </main>
     );
   }
@@ -142,10 +150,13 @@ export function StudentPage() {
     return (
       <main className="page student-page">
         <TechBackdrop />
-        <p>本场已重新开始，点一下重新加入</p>
-        <button type="button" onClick={() => void onRejoin()}>
-          重新加入
-        </button>
+        <div className="status-block">
+          <span className="status-kicker">RESET</span>
+          <p>本场已重新开始，点一下重新加入</p>
+          <button type="button" onClick={() => void onRejoin()}>
+            重新加入
+          </button>
+        </div>
       </main>
     );
   }
@@ -155,16 +166,24 @@ export function StudentPage() {
       <TechBackdrop />
       <header className="student-top">科技力量大</header>
       <div className="student-landscape">
-        <section className="student-info">
+        <section className="student-info" aria-live="polite">
           <h1>{group!.name}</h1>
-          <p className="energy">能量 {group!.score}</p>
-          {failMsg && <p className="error">{failMsg}</p>}
+          <p className="energy">
+            <span className="energy-label">能量</span>
+            {group!.score}
+          </p>
+          {failMsg && (
+            <p className="error" role="alert">
+              {failMsg}
+            </p>
+          )}
         </section>
         <section className="student-action">
           <button
             type="button"
             className={pulse ? "plus-btn pulse" : "plus-btn"}
             onClick={() => void onPlus()}
+            aria-label="能量加二"
           >
             能量 +2
           </button>
