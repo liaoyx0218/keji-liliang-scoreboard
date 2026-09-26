@@ -13,7 +13,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function loadDotEnv(filePath: string) {
   if (!fs.existsSync(filePath)) return;
-  for (const line of fs.readFileSync(filePath, "utf8").split(/\r?\n/)) {
+  let raw = fs.readFileSync(filePath, "utf8");
+  if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
+  for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
     const i = trimmed.indexOf("=");
