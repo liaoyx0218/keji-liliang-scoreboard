@@ -97,28 +97,100 @@
   z-index: 1;
 }
 
+.student-tabs {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+.student-tab {
+  min-height: 44px;
+  padding: 0.5rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  background: rgba(12, 28, 48, 0.6);
+  color: var(--cyan-dim);
+  font-family: var(--font-display);
+  cursor: pointer;
+}
+.student-tab.active {
+  color: var(--cyan);
+  border-color: rgba(0, 229, 255, 0.55);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.15);
+}
+.student-peer-list {
+  width: min(100%, 420px);
+}
+.student-peer-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.peer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.peer-name {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+.peer-plus {
+  min-width: 56px;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  background: rgba(0, 229, 255, 0.15);
+  color: var(--cyan);
+  font-weight: 700;
+  cursor: pointer;
+}
+.peer-empty {
+  text-align: center;
+  opacity: 0.7;
+}
+
 @media (orientation: landscape) and (min-width: 768px) {
   .student-landscape {
-    flex-direction: row;
-    align-items: stretch;
-    gap: 2rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
     max-width: 1100px;
     margin: 0 auto;
     width: 100%;
   }
 
+  .student-tabs {
+    order: -1;
+    width: 100%;
+  }
+
   .student-info {
-    flex: 0 0 38%;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 420px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    text-align: left;
-    padding: 1rem 0.5rem 1rem 1rem;
+    text-align: center;
+    padding: 1rem 1.5rem;
   }
 
   .student-action {
     flex: 1;
     align-items: center;
+    width: 100%;
+  }
+
+  .student-peer-list {
+    flex: 1;
+    width: 100%;
+    max-width: 420px;
+    overflow-y: auto;
+    max-height: min(50vh, 360px);
   }
 
   .student-page .plus-btn {
@@ -129,5 +201,29 @@
     height: 100%;
     max-height: 480px;
     border-radius: 28px;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 768px) {
+  .student-landscape:has(.student-action) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 2rem;
+  }
+
+  .student-landscape:has(.student-action) .student-tabs {
+    order: 0;
+    flex: 0 0 100%;
+  }
+
+  .student-landscape:has(.student-action) .student-info {
+    flex: 0 0 38%;
+    text-align: left;
+    padding: 1rem 0.5rem 1rem 1rem;
+  }
+
+  .student-landscape:has(.student-action) .student-action {
+    flex: 1;
   }
 }
