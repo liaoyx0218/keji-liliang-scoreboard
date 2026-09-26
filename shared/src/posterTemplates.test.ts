@@ -28,11 +28,18 @@ describe("posterTemplates", () => {
     });
   });
 
-  it("buildPosterPrompt includes title and layout", () => {
-    const t = getPosterTemplate(1);
-    const prompt = buildPosterPrompt(t, t.defaults, `"衣"时光溯源队`);
-    expect(prompt).toContain(t.defaults.title);
-    expect(prompt).toContain("手抄报");
-    expect(prompt).toContain("时光溯源队");
+  it("buildPosterPrompt differs by role for same theme", () => {
+    const a = getPosterTemplate(1);
+    const b = getPosterTemplate(2);
+    const c = getPosterTemplate(3);
+    const pa = buildPosterPrompt(a, a.defaults, `"衣"时光溯源队`);
+    const pb = buildPosterPrompt(b, b.defaults, `"衣"科技赋能队`);
+    const pc = buildPosterPrompt(c, c.defaults, `"衣"生活畅想队`);
+    expect(pa).toContain("时间线");
+    expect(pb).toContain("技术卡片");
+    expect(pc).toContain("未来");
+    expect(pa).not.toEqual(pb);
+    expect(pb).not.toEqual(pc);
+    expect(pa).toContain("视觉差异");
   });
 });

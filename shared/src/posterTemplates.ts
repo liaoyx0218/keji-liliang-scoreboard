@@ -14,23 +14,44 @@ export type PosterTemplate = {
   defaults: PosterFields;
 };
 
-const ROLE_META: { role: PosterRole; roleLabel: string; layoutHint: string }[] = [
+const ROLE_META: {
+  role: PosterRole;
+  roleLabel: string;
+  layoutHint: string;
+  /** 强制视觉差异，避免同主题三组出图雷同 */
+  visualFingerprint: string;
+}[] = [
   {
     role: "origin",
     roleLabel: "溯源",
-    layoutHint: "竖版手抄报，上方大标题，中间横向或纵向演变时间线，每个阶段配小插画与材料说明",
+    layoutHint:
+      "竖版手抄报，上方大标题，中间一条从古到今的演变时间线（箭头串联），每个阶段配小插画与说明，禁止做成科技发明卡片墙或古今未来三栏对比",
+    visualFingerprint:
+      "主色偏暖黄土与纸本米黄；画面像历史时间轴；多画物件外形与材料变化，少画现代机器特写；角落标注「溯源」",
   },
   {
     role: "tech",
     roleLabel: "赋能",
-    layoutHint: "竖版手抄报，突出科技发明卡片：织布机/灶具/建筑技术等，旁注科技如何改变生活",
+    layoutHint:
+      "竖版手抄报，中间是 4～6 张科技发明/技术卡片，每张写名称+如何改变生活，禁止做成完整演变时间线或古今未来三栏畅想",
+    visualFingerprint:
+      "主色偏青蓝与科技感；画面像发明展板；突出工具、设备、技术特写；角落标注「赋能」",
   },
   {
     role: "dream",
     roleLabel: "畅想",
-    layoutHint: "竖版手抄报，左古今痛点对比、右未来畅想，底部感悟总结",
+    layoutHint:
+      "竖版手抄报，左栏「古」痛点、中栏「今」改善、右栏「未来」畅想，底部一行感悟，禁止做成多段时间线或发明卡片矩阵",
+    visualFingerprint:
+      "主色偏青绿与晚霞粉；画面像对比拼贴+未来想象；可出现未来场景剪影；角落标注「畅想」",
   },
 ];
+
+const THEME_TECH_EXAMPLES: Record<SortTheme, string> = {
+  yi: "织布机、缝纫机、新型面料、智能穿戴",
+  shi: "液化气灶、冰箱、电饭煲、自动炒菜机",
+  zhu: "砖瓦结构、钢筋混凝土、水电燃气、智能家居",
+};
 
 const DEFAULTS: Record<SortTheme, [PosterFields, PosterFields, PosterFields]> = {
   yi: [
@@ -191,14 +212,20 @@ export function buildPosterPrompt(
   groupName: string
 ): string {
   const name = groupName || seqToGroupName(1);
+  const slotMeta = ROLE_META.find((r) => r.role === template.role) ?? ROLE_META[0];
+  const techHint =
+    template.role === "tech"
+      ? `本组科技卡片优先画：${THEME_TECH_EXAMPLES[template.theme]}。`
+      : "";
   return [
     "请生成一张竖版小学生课堂手抄报海报，扁平插画风格，色彩明亮，分区清晰。",
-    `主题：${template.themeLabel}；小组：${name}；侧重：${template.roleLabel}。`,
-    `版式要求：${template.layoutHint}。`,
+    `主题：${template.themeLabel}；小组：${name}；本组唯一侧重：${template.roleLabel}（不要混入另外两种侧重）。`,
+    `版式要求（必须遵守）：${template.layoutHint}。${techHint}`,
+    `视觉差异（必须遵守）：${slotMeta.visualFingerprint}。`,
     "画面上用清晰可读的中文标题与短句（手写报风格），不要英文乱码，不要水印。",
     `大标题：${fields.title}`,
     `副标题：${fields.subtitle}`,
-    `正文要点：\n${fields.body}`,
+    `正文要点（只画这些内容，不要自行改成别组的时间线/发明清单/畅想结构）：\n${fields.body}`,
     `总结句：${fields.summary}`,
     "整体像一张可投屏展示的完整手抄报，信息层次分明，适合小学三年级课堂。",
   ].join("\n");
