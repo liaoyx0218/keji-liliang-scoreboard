@@ -121,4 +121,85 @@ describe("HTTP API", () => {
     await request(app).post(`/api/sessions/${id}/reset`);
     expect(onChange).toHaveBeenCalledTimes(4);
   });
+
+  it("peer score +2 does not change from-group score", async () => {
+    const app = createApp(store);
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const j1 = await request(app).post(`/api/sessions/${id}/join`);
+    const j2 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app)
+      .post(`/api/sessions/${id}/groups/${j2.body.groupId}/score`)
+      .send({ source: "peer", fromGroupId: j1.body.groupId })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.groupId).toBe(j2.body.groupId);
+        expect(body.score).toBe(2);
+      });
+    const board = await request(app).get(`/api/sessions/${id}/leaderboard`);
+    const byId = Object.fromEntries(board.body.entries.map((e: { groupId: string; score: number }) => [e.groupId, e.score]));
+    expect(byId[j2.body.groupId]).toBe(2);
+    expect(byId[j1.body.groupId]).toBe(0);
+  });
+
+  it("peer score with from===to → 400 INVALID_PEER", async () => {
+    const app = createApp(store);
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const j1 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app)
+      .post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`)
+      .send({ source: "peer", fromGroupId: j1.body.groupId })
+      .expect(400)
+      .expect(({ body }) => expect(body.error).toBe("INVALID_PEER"));
+  });
+
+  it("peer score missing fromGroupId → 400 INVALID_PEER", async () => {
+    const app = createApp(store);
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const j1 = await request(app).post(`/api/sessions/${id}/join`);
+    const j2 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app)
+      .post(`/api/sessions/${id}/groups/${j2.body.groupId}/score`)
+      .send({ source: "peer" })
+      .expect(400)
+      .expect(({ body }) => expect(body.error).toBe("INVALID_PEER"));
+  });
+
+  it("peer score with unknown fromGroupId → 404 GROUP_NOT_FOUND", async () => {
+    const app = createApp(store);
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const j2 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app)
+      .post(`/api/sessions/${id}/groups/${j2.body.groupId}/score`)
+      .send({ source: "peer", fromGroupId: "nope" })
+      .expect(404)
+      .expect(({ body }) => expect(body.error).toBe("GROUP_NOT_FOUND"));
+  });
+
+  it("teacher source +2 works like self", async () => {
+    const app = createApp(store);
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const j1 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app)
+      .post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`)
+      .send({ source: "teacher" })
+      .expect(200)
+      .expect(({ body }) => expect(body.score).toBe(2));
+  });
+
+  it("empty body still self +2 (compat)", async () => {
+    const app = createApp(store);
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const j1 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app)
+      .post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`)
+      .send({})
+      .expect(200)
+      .expect(({ body }) => expect(body.score).toBe(2));
+  });
 });

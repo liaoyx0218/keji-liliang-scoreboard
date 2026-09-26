@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { clearScores, fetchLeaderboard, resetSession, wsUrl } from "../api";
+import { addScore, clearScores, fetchLeaderboard, resetSession, wsUrl } from "../api";
 import { TechBackdrop } from "../components/TechBackdrop";
 import { layoutBubbles, SIZE_MAX, SIZE_MIN } from "../lib/bubbleLayout";
 import type { LeaderboardEntry } from "@kl/shared";
@@ -12,6 +12,8 @@ const LONG_PRESS_MS = 3000;
 const PLACE_LABEL = ["冠军", "亚军", "季军"] as const;
 const PLACE_MEDAL = ["🥇", "🥈", "🥉"] as const;
 
+type Floater = { id: string; groupId: string; x: number; y: number };
+
 export function TeacherBoard() {
   const { sessionId = "" } = useParams();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -21,6 +23,8 @@ export function TeacherBoard() {
   const [clearProgress, setClearProgress] = useState(0);
   const [clearedMsg, setClearedMsg] = useState("");
   const [pulseIds, setPulseIds] = useState<Set<string>>(new Set());
+  const [floaters, setFloaters] = useState<Floater[]>([]);
+  const [failMsg, setFailMsg] = useState("");
   const clicks = useRef<{ n: number; t: number }>({ n: 0, t: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
   const prevScores = useRef<Map<string, number>>(new Map());
@@ -184,6 +188,24 @@ export function TeacherBoard() {
     setShowAward(true);
   }
 
+  async function onBubbleClick(groupId: string, size: number, left: number, top: number) {
+    try {
+      await addScore(sessionId, groupId, { source: "teacher" });
+      setFailMsg("");
+      const fid = `${groupId}-${Date.now()}`;
+      setFloaters((f) => [
+        ...f,
+        { id: fid, groupId, x: left + size * 0.65, y: top + size * 0.15 },
+      ]);
+      window.setTimeout(() => {
+        setFloaters((f) => f.filter((x) => x.id !== fid));
+      }, 900);
+    } catch {
+      setFailMsg("没加上，再试一次");
+      window.setTimeout(() => setFailMsg(""), 2500);
+    }
+  }
+
   function revealedPlaces(): { entry: LeaderboardEntry; placeIndex: number }[] {
     const n = topThree.length;
     const out: { entry: LeaderboardEntry; placeIndex: number }[] = [];
@@ -227,6 +249,7 @@ export function TeacherBoard() {
           )}
         </button>
         {clearedMsg && <p className="cleared-toast">{clearedMsg}</p>}
+        {failMsg && <p className="award-fail-toast">{failMsg}</p>}
       </div>
 
       {entries.length === 0 ? (
@@ -244,7 +267,8 @@ export function TeacherBoard() {
             const floatDur = `${5.5 + (e.seq % 5) * 0.7}s`;
             const floatDelay = `${-((e.seq * 0.85) % 6)}s`;
             return (
-              <div
+              <button
+                type="button"
                 key={e.groupId}
                 className={`energy-bubble${pulseIds.has(e.groupId) ? " score-pulse" : ""}`}
                 style={{
@@ -256,12 +280,24 @@ export function TeacherBoard() {
                   ["--float-dur" as string]: floatDur,
                   ["--float-delay" as string]: floatDelay,
                 }}
+                onClick={() => onBubbleClick(e.groupId, p.size, p.x, p.y)}
+                aria-label={`${e.name} 能量球`}
               >
                 <span className="bubble-name">{e.name}</span>
                 <span className="bubble-score">{e.score}</span>
-              </div>
+              </button>
             );
           })}
+          {floaters.map((f) => (
+            <span
+              key={f.id}
+              className="score-floater"
+              style={{ left: f.x, top: f.y }}
+              aria-hidden
+            >
+              +2
+            </span>
+          ))}
         </div>
       )}
 
