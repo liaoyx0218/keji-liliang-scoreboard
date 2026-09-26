@@ -95,8 +95,17 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
         if (e.code === "ARK_NOT_CONFIGURED") setHint("未配置生图服务，请老师检查后台");
         else if (e.code === "POSTER_COOLDOWN") setHint("生成太快了，稍等再试");
         else if (e.code === "POSTER_LIMIT") setHint("本组生成次数已用完");
-        else if (e.code.startsWith("ARK_")) setHint("生图失败，请稍后再试");
-        else setHint("生成失败，再试一次");
+        else if (e.code.startsWith("ARK_")) {
+          const detail = (() => {
+            try {
+              const body = JSON.parse(e.message) as { detail?: string };
+              return body.detail;
+            } catch {
+              return undefined;
+            }
+          })();
+          setHint(detail ? `生图失败：${detail}` : "生图失败，请稍后再试");
+        } else setHint("生成失败，再试一次");
       } else {
         setHint("生成失败，再试一次");
       }

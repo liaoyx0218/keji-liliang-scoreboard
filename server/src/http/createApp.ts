@@ -420,7 +420,9 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "ARK_GENERATE_FAILED";
       if (msg.startsWith("ARK_")) {
-        return res.status(502).json({ error: msg.split(":")[0] });
+        const code = msg.split(":")[0];
+        const detail = msg.includes(":") ? msg.slice(msg.indexOf(":") + 1).slice(0, 240) : undefined;
+        return res.status(502).json({ error: code, detail });
       }
       return res.status(502).json({ error: "ARK_GENERATE_FAILED" });
     }

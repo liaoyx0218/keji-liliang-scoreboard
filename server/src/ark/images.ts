@@ -23,7 +23,7 @@ export async function generateArkImage(opts: GenerateImageOptions): Promise<ArkI
     body: JSON.stringify({
       model: opts.model,
       prompt: opts.prompt,
-      size: opts.size ?? "1440x2560",
+      size: opts.size ?? "2K",
       response_format: "url",
       watermark: false,
     }),
