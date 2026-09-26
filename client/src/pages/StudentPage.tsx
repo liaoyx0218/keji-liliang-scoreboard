@@ -21,6 +21,7 @@ import { clearBinding, loadBinding, saveBinding } from "../storage";
 import "./StudentPage.css";
 
 type Mode = "loading" | "play" | "needRejoin" | "error";
+type PeerView = "home" | "peer";
 type GroupState = { id: string; name: string; score: number; seq: number };
 
 export function StudentPage() {
@@ -32,6 +33,7 @@ export function StudentPage() {
   const [pulse, setPulse] = useState(false);
   const [wishActive, setWishActive] = useState(false);
   const [peerActive, setPeerActive] = useState(false);
+  const [peerView, setPeerView] = useState<PeerView>("home");
   const [sortActive, setSortActive] = useState(false);
   const [posterActive, setPosterActive] = useState(false);
   const [wishDraft, setWishDraft] = useState("");
@@ -48,6 +50,7 @@ export function StudentPage() {
       setPeerActive(Boolean(m.peerActive));
       setSortActive(Boolean(m.sortActive));
       setPosterActive(Boolean(m.posterActive));
+      setPeerView(m.peerActive ? "peer" : "home");
     } catch {
       try {
         const w = await fetchWishes(sessionId);
@@ -58,6 +61,7 @@ export function StudentPage() {
       setPeerActive(false);
       setSortActive(false);
       setPosterActive(false);
+      setPeerView("home");
     }
   }, [sessionId]);
 
@@ -157,6 +161,9 @@ export function StudentPage() {
           setWishActive(false);
           setSortActive(false);
           setPosterActive(false);
+          setPeerView("peer");
+        } else {
+          setPeerView("home");
         }
         return;
       }
@@ -448,42 +455,50 @@ export function StudentPage() {
     );
   }
 
-  if (peerActive) {
+  if (peerActive && peerView === "peer") {
     return (
       <main className="page student-page student-page--play student-page--peer">
         <TechBackdrop />
-        <header className="student-top">小组互评</header>
-        <div className="peer-panel">
-          <p className="peer-panel-hint">
-            你是 <strong>{group!.name}</strong> · 给别的组点能量吧
+        <header className="peer-screen-header">
+          <button
+            type="button"
+            className="peer-back-btn"
+            onClick={() => {
+              setFailMsg("");
+              setPeerView("home");
+            }}
+          >
+            返回
+          </button>
+          <h1 className="peer-screen-title">小组互评</h1>
+          <p className="peer-screen-sub">{group!.name}</p>
+        </header>
+        {failMsg && (
+          <p className="error peer-fail" role="alert">
+            {failMsg}
           </p>
-          {failMsg && (
-            <p className="error" role="alert">
-              {failMsg}
-            </p>
+        )}
+        <section className="student-peer-list">
+          {others.length === 0 ? (
+            <p className="peer-empty">还没有其他组</p>
+          ) : (
+            <ul>
+              {others.map((e) => (
+                <li key={e.groupId} className="peer-row">
+                  <span className="peer-name">{e.name}</span>
+                  <span className="peer-score">能量 {e.score}</span>
+                  <button
+                    type="button"
+                    className="peer-plus"
+                    onClick={() => void onPlusPeer(e.groupId)}
+                  >
+                    +2
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-          <section className="student-peer-list">
-            {others.length === 0 ? (
-              <p className="peer-empty">还没有其他组</p>
-            ) : (
-              <ul>
-                {others.map((e) => (
-                  <li key={e.groupId} className="peer-row">
-                    <span className="peer-name">{e.name}</span>
-                    <span className="peer-score">能量 {e.score}</span>
-                    <button
-                      type="button"
-                      className="peer-plus"
-                      onClick={() => void onPlusPeer(e.groupId)}
-                    >
-                      +2
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+        </section>
       </main>
     );
   }
@@ -514,6 +529,18 @@ export function StudentPage() {
           >
             能量 +2
           </button>
+          {peerActive && (
+            <button
+              type="button"
+              className="peer-entry-btn"
+              onClick={() => {
+                setFailMsg("");
+                setPeerView("peer");
+              }}
+            >
+              小组互评
+            </button>
+          )}
         </section>
       </div>
     </main>
