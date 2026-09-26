@@ -58,12 +58,36 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   app.post("/api/sessions/:sessionId/groups/:groupId/score", (req, res) => {
     const delta = req.body?.delta === undefined ? 2 : Number(req.body.delta);
     if (delta !== 2) return res.status(400).json({ error: "DELTA_MUST_BE_2" });
-    const result = store.addScore(req.params.sessionId, req.params.groupId, 2);
+
+    const sourceRaw = req.body?.source;
+    const source =
+      sourceRaw === undefined || sourceRaw === null || sourceRaw === ""
+        ? "self"
+        : String(sourceRaw);
+    if (source !== "self" && source !== "peer" && source !== "teacher") {
+      return res.status(400).json({ error: "INVALID_SOURCE" });
+    }
+
+    const sessionId = req.params.sessionId;
+    const groupId = req.params.groupId;
+
+    if (source === "peer") {
+      const fromGroupId = req.body?.fromGroupId;
+      if (typeof fromGroupId !== "string" || !fromGroupId || fromGroupId === groupId) {
+        return res.status(400).json({ error: "INVALID_PEER" });
+      }
+      const board = store.leaderboard(sessionId);
+      if ("error" in board) return res.status(404).json({ error: board.error });
+      const fromExists = board.entries.some((e) => e.groupId === fromGroupId);
+      if (!fromExists) return res.status(404).json({ error: "GROUP_NOT_FOUND" });
+    }
+
+    const result = store.addScore(sessionId, groupId, 2);
     if ("error" in result) {
       return res.status(404).json({ error: result.error });
     }
     notifyChange();
-    broadcast(req.params.sessionId);
+    broadcast(sessionId);
     res.json({ groupId: result.group.id, score: result.group.score });
   });
 
