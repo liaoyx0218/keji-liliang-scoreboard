@@ -444,7 +444,6 @@ export function StudentPage() {
     return (
       <main className="page student-page student-page--play student-page--poster">
         <TechBackdrop />
-        <header className="student-top">AI 手抄报</header>
         <PosterEditor
           sessionId={sessionId}
           groupId={group.id}
@@ -504,23 +503,21 @@ export function StudentPage() {
   }
 
   return (
-    <main className="page student-page student-page--play">
+    <main className="page student-page student-page--play student-page--energy">
       <TechBackdrop />
       <header className="student-top">科技力量大</header>
-      <div className="student-landscape student-landscape--self">
-        <section className="student-info" aria-live="polite">
-          <h1>{group!.name}</h1>
-          <p className="energy">
-            <span className="energy-label">能量</span>
-            {group!.score}
+      <div className="student-energy-stage">
+        <section className="student-energy-card" aria-live="polite">
+          <p className="energy-kicker">本组能量</p>
+          <h1 className="energy-group">{group!.name}</h1>
+          <p className="energy-score">
+            <span className="energy-score-num">{group!.score}</span>
           </p>
           {failMsg && (
             <p className="error" role="alert">
               {failMsg}
             </p>
           )}
-        </section>
-        <section className="student-action">
           <button
             type="button"
             className={pulse ? "plus-btn pulse" : "plus-btn"}
