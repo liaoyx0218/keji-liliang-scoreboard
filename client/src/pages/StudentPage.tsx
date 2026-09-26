@@ -287,7 +287,7 @@ export function StudentPage() {
       asrRef.current = session;
       setWishListening(true);
     } catch {
-      setWishHint("打不开麦克风或听写，请检查权限后重试");
+      setWishHint("麦克风不可用");
     } finally {
       setWishBusy(false);
     }
@@ -302,9 +302,9 @@ export function StudentPage() {
     try {
       const text = await session.stop();
       if (text) setWishDraft(text);
-      else if (!wishDraft) setWishHint("没听清，再说一次吧");
+      else if (!wishDraft) setWishHint("没听清");
     } catch {
-      setWishHint("听写结束失败，请重试");
+      setWishHint("听写失败");
     } finally {
       setWishBusy(false);
     }
@@ -318,13 +318,13 @@ export function StudentPage() {
     try {
       await submitWish(sessionId, group.id, wishDraft.trim());
       setWishDraft("");
-      setWishOk("已提交，可以说下一条");
+      setWishOk("已提交");
     } catch (e) {
       if (isNeedRejoinError(e)) {
         setMode("needRejoin");
         return;
       }
-      setWishHint("提交失败，再试一次");
+      setWishHint("提交失败");
     } finally {
       setWishBusy(false);
     }
@@ -338,7 +338,7 @@ export function StudentPage() {
         <TechBackdrop />
         <div className="status-block" role="status" aria-live="polite">
           <span className="status-kicker">CONNECT</span>
-          <p className="loading-dots">正在接入能量场</p>
+          <p className="loading-dots">连接中…</p>
         </div>
       </main>
     );
@@ -351,7 +351,7 @@ export function StudentPage() {
         <div className="status-block">
           <span className="status-kicker">ERROR</span>
           <p className="error" role="alert">
-            无法加入本场，请检查链接或稍后重试。
+            无法加入
           </p>
           <button type="button" onClick={() => void ensureGroup()}>
             重试
@@ -367,7 +367,7 @@ export function StudentPage() {
         <TechBackdrop />
         <div className="status-block">
           <span className="status-kicker">RESET</span>
-          <p>本场已重新开始，点一下重新加入</p>
+          <p>本场已重置</p>
           <button type="button" onClick={() => void onRejoin()}>
             重新加入
           </button>
@@ -380,9 +380,7 @@ export function StudentPage() {
     return (
       <main className="page student-page student-page--play student-page--wish">
         <TechBackdrop />
-        <header className="student-top">科技心愿卡</header>
         <div className="wish-card" aria-live="polite">
-          <p className="wish-prompt">用一句话说出你的科技小愿望</p>
           <p className="wish-group">{group!.name}</p>
           <textarea
             className="wish-draft"
@@ -390,7 +388,7 @@ export function StudentPage() {
             maxLength={200}
             value={wishDraft}
             onChange={(e) => setWishDraft(e.target.value)}
-            placeholder="按住说话后，文字会出现在这里，也可以手改"
+            placeholder="说出愿望，也可手改"
           />
           <button
             type="button"
@@ -417,7 +415,7 @@ export function StudentPage() {
             disabled={wishBusy || !wishDraft.trim()}
             onClick={() => void onSubmitWish()}
           >
-            提交心愿
+            提交
           </button>
           {wishHint && (
             <p className="error" role="alert">
@@ -434,7 +432,6 @@ export function StudentPage() {
     return (
       <main className="page student-page student-page--play student-page--sort">
         <TechBackdrop />
-        <header className="student-top">时光排序</header>
         <SortPuzzlePanel theme={seqToTheme(group.seq)} groupName={group.name} />
       </main>
     );
@@ -505,10 +502,8 @@ export function StudentPage() {
   return (
     <main className="page student-page student-page--play student-page--energy">
       <TechBackdrop />
-      <header className="student-top">科技力量大</header>
       <div className="student-energy-stage">
         <section className="student-energy-card" aria-live="polite">
-          <p className="energy-kicker">本组能量</p>
           <h1 className="energy-group">{group!.name}</h1>
           <p className="energy-score">
             <span className="energy-score-num">{group!.score}</span>

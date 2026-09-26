@@ -275,10 +275,10 @@ export function TeacherBoard() {
     try {
       const snap = await clearScores(sessionId);
       setEntries(snap.entries);
-      setClearedMsg("已全部清零");
+      setClearedMsg("已清零");
       window.setTimeout(() => setClearedMsg(""), 3000);
     } catch {
-      setClearedMsg("清零失败，请重试");
+      setClearedMsg("清零失败");
       window.setTimeout(() => setClearedMsg(""), 3000);
     }
   }
@@ -357,7 +357,7 @@ export function TeacherBoard() {
       }
       setFailMsg("");
     } catch {
-      setFailMsg("心愿卡操作失败，请重试");
+      setFailMsg("心愿卡失败");
       window.setTimeout(() => setFailMsg(""), 2500);
     }
   }
@@ -376,7 +376,7 @@ export function TeacherBoard() {
       }
       setFailMsg("");
     } catch {
-      setFailMsg("互评操作失败，请重试");
+      setFailMsg("互评失败");
       window.setTimeout(() => setFailMsg(""), 2500);
     }
   }
@@ -395,7 +395,7 @@ export function TeacherBoard() {
       }
       setFailMsg("");
     } catch {
-      setFailMsg("闯关操作失败，请重试");
+      setFailMsg("排序失败");
       window.setTimeout(() => setFailMsg(""), 2500);
     }
   }
@@ -415,7 +415,7 @@ export function TeacherBoard() {
       }
       setFailMsg("");
     } catch {
-      setFailMsg("手抄报操作失败，请重试");
+      setFailMsg("手抄报失败");
       window.setTimeout(() => setFailMsg(""), 2500);
     }
   }
@@ -470,10 +470,7 @@ export function TeacherBoard() {
             <div className="wish-wall">
               {wishes.length === 0 ? (
                 <div className="empty-panel" role="status">
-                  <p className="empty-title">心愿墙待机中</p>
-                  <p className="empty">
-                    {wishActive ? "等待小组说出心愿…" : "点击右侧「心愿卡」开始收集"}
-                  </p>
+                  <p className="empty">{wishActive ? "等待心愿…" : "点「心愿卡」开始"}</p>
                 </div>
               ) : (
                 <ul className="wish-grid">
@@ -504,12 +501,7 @@ export function TeacherBoard() {
             <div className="poster-wall">
               {posters.filter((p) => p.imageUrl).length === 0 ? (
                 <div className="empty-panel" role="status">
-                  <p className="empty-title">手抄报墙待机中</p>
-                  <p className="empty">
-                    {posterActive
-                      ? "等待小组生成手抄报…"
-                      : "点击右侧「手抄报」开始制作"}
-                  </p>
+                  <p className="empty">{posterActive ? "等待生成…" : "点「手抄报」开始"}</p>
                 </div>
               ) : (
                 <ul className="poster-grid">
@@ -541,8 +533,7 @@ export function TeacherBoard() {
           >
             {entries.length === 0 ? (
               <div className="empty-panel" role="status">
-                <p className="empty-title">能量场待机中</p>
-                <p className="empty">等待小组扫码加入，气泡将在此汇聚…</p>
+                <p className="empty">等待小组加入…</p>
               </div>
             ) : (
               <div className="bubble-canvas" ref={canvasRef}>
@@ -667,9 +658,9 @@ export function TeacherBoard() {
           <div className="board-actions-status" aria-live="polite">
             {clearedMsg && <p className="cleared-toast">{clearedMsg}</p>}
             {failMsg && <p className="award-fail-toast">{failMsg}</p>}
-            {sortActive && <p className="sort-live-hint">排序闯关中</p>}
-            {posterActive && <p className="poster-live-hint">手抄报制作中</p>}
-            {wishActive && <p className="wish-live-hint">收集中</p>}
+            {sortActive && <p className="sort-live-hint">排序中</p>}
+            {posterActive && <p className="poster-live-hint">手抄报中</p>}
+            {wishActive && <p className="wish-live-hint">心愿中</p>}
             {peerActive && <p className="peer-live-hint">互评中</p>}
           </div>
         </aside>
@@ -722,7 +713,7 @@ export function TeacherBoard() {
           <div className="award-stage" onClick={(e) => e.stopPropagation()}>
             <div className="award-burst" aria-hidden />
             {awardStep >= 1 && <p className="award-title pop-in">科技小达人</p>}
-            {awardStep >= 1 && <p className="award-sub pop-in">能量榜前三名 · 颁发勋章</p>}
+            {awardStep >= 1 && <p className="award-sub pop-in">前三名</p>}
             <ul className="award-list">
               {revealedPlaces().map(({ entry, placeIndex }) => (
                 <li key={entry.groupId} className={`award-card place-${placeIndex} pop-in`}>

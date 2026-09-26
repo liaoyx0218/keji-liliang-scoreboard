@@ -49,7 +49,7 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
           onNeedRejoin?.();
           return;
         }
-        if (!dead) setHint("加载失败，请重试");
+        if (!dead) setHint("加载失败");
       } finally {
         if (!dead) setLoading(false);
       }
@@ -77,7 +77,7 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
       const poster = (r as { poster?: { imageUrl?: string } }).poster;
       const url = poster?.imageUrl ?? "";
       if (!url) {
-        setHint("没有返回图片，请再试");
+        setHint("没有图片");
         return;
       }
       setImageUrl(url);
@@ -92,10 +92,10 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
         if (e.code === "ARK_NOT_CONFIGURED") setHint("未配置生图服务");
         else if (e.code === "POSTER_COOLDOWN") setHint("稍后再试");
         else if (e.code === "POSTER_LIMIT") setHint("次数已用完");
-        else if (e.code.startsWith("ARK_")) setHint("生图失败，请再试");
-        else setHint("生成失败，请再试");
+        else if (e.code.startsWith("ARK_")) setHint("生图失败");
+        else setHint("生成失败");
       } else {
-        setHint("生成失败，请再试");
+        setHint("生成失败");
       }
     } finally {
       setBusy(false);

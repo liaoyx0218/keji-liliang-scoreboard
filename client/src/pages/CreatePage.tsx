@@ -25,7 +25,7 @@ export function CreatePage() {
         teacherUrl: `${origin}${data.teacherPath}`,
       });
     } catch {
-      setErr("创建失败，请重试");
+      setErr("创建失败");
     } finally {
       setBusy(false);
     }
@@ -44,7 +44,7 @@ export function CreatePage() {
     setCopyFeedback("");
     const canvas = qrWrapRef.current?.querySelector("canvas");
     if (!canvas) {
-      setCopyFeedback("还没有二维码，请先创建本场");
+      setCopyFeedback("请先创建本场");
       return;
     }
 
@@ -52,28 +52,27 @@ export function CreatePage() {
       canvas.toBlob((b) => resolve(b), "image/png")
     );
     if (!blob) {
-      setCopyFeedback("生成图片失败，请重试");
+      setCopyFeedback("生成失败");
       return;
     }
 
     try {
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      setCopyFeedback("已复制二维码，可粘贴到课件");
+      setCopyFeedback("已复制");
       return;
     } catch {
       /* HTTP / permission — fall through to download */
     }
 
     downloadQrPng(blob);
-    setCopyFeedback("浏览器不支持复制图片，已下载二维码");
+    setCopyFeedback("已下载二维码");
   }
 
   return (
     <main className="page create-page">
       <TechBackdrop />
       <span className="status-kicker">开赛准备</span>
-      <h1>科技力量大 · 开赛准备</h1>
-      <p className="hero-lead">生成学生端二维码放进课件；大屏一键打开能量榜，课堂立刻开战。</p>
+      <h1>科技力量大</h1>
       <div className="create-actions">
         <button type="button" onClick={() => void onCreate()} disabled={busy} aria-busy={busy}>
           {busy ? "创建中…" : "创建本场"}
@@ -86,7 +85,7 @@ export function CreatePage() {
       )}
       {info && (
         <section className="panel" aria-label="本场入口">
-          <p className="panel-label">学生端链接（唯一）</p>
+          <p className="panel-label">学生端</p>
           <code>{info.studentUrl}</code>
           <div className="qr-wrap" ref={qrWrapRef}>
             <QRCodeCanvas value={info.studentUrl} size={256} includeMargin />

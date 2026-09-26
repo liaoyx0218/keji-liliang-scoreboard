@@ -342,7 +342,6 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
             <span className="sort-theme-num">{THEME_INDEX[theme]}</span>
             {puzzle.themeLabel}的演变
           </h2>
-          <span className="sort-tag">时间列车</span>
         </div>
         <p className="sort-group">{groupName}</p>
       </header>
@@ -379,7 +378,7 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
             </button>
           );
         })}
-        {pool.length === 0 && <p className="sort-pool-empty">图片都已上车，拖回这里可调整</p>}
+        {pool.length === 0 && <p className="sort-pool-empty">拖回可调整</p>}
       </section>
 
       <section className="sort-train" aria-label="从古到今排序">
@@ -445,8 +444,8 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
           提交
         </button>
       </div>
-      {result === "ok" && <p className="sort-ok">闯关成功！演变顺序对了</p>}
-      {result === "bad" && <p className="sort-bad">顺序还不对，调整后再提交</p>}
+      {result === "ok" && <p className="sort-ok">顺序正确</p>}
+      {result === "bad" && <p className="sort-bad">顺序不对</p>}
 
       {ghost && (
         <div
