@@ -2,6 +2,16 @@
   position: relative;
 }
 
+.teacher-board .brand-kicker {
+  display: block;
+  text-align: center;
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.22em;
+  color: var(--coral);
+  text-transform: none;
+}
+
 .teacher-board .secret-reset {
   position: absolute;
   top: 0;
@@ -13,6 +23,12 @@
   opacity: 0.15;
   cursor: pointer;
   background: currentColor;
+}
+
+.teacher-board .secret-reset:focus-visible {
+  outline: none;
+  opacity: 0.8;
+  box-shadow: var(--focus-ring);
 }
 
 .teacher-board .board-actions {
@@ -37,7 +53,7 @@
 .teacher-board .clear-scores-btn {
   position: relative;
   overflow: hidden;
-  border-color: rgba(0, 229, 255, 0.45);
+  border-color: rgba(61, 232, 255, 0.45);
 }
 
 .teacher-board .clear-scores-progress {
@@ -45,7 +61,7 @@
   left: 0;
   bottom: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--cyan), #ffd54f);
+  background: linear-gradient(90deg, var(--cyan), var(--coral), var(--gold));
   transition: width 0.05s linear;
   pointer-events: none;
 }
@@ -54,7 +70,7 @@
   width: 100%;
   text-align: center;
   margin: 0;
-  color: var(--cyan);
+  color: var(--gold);
   font-weight: 600;
 }
 
@@ -63,26 +79,25 @@
   width: 100%;
   min-height: min(62vh, 520px);
   margin-top: 0.5rem;
-  border-radius: 16px;
-  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(61, 232, 255, 0.22);
   overflow: hidden;
   background:
-    radial-gradient(circle at 20% 30%, rgba(0, 229, 255, 0.08), transparent 35%),
-    radial-gradient(circle at 80% 70%, rgba(255, 200, 80, 0.06), transparent 40%),
-    radial-gradient(ellipse at 50% 100%, rgba(0, 100, 160, 0.25), transparent 55%),
-    linear-gradient(180deg, rgba(6, 14, 28, 0.4), rgba(2, 8, 18, 0.65));
+    radial-gradient(circle at 18% 28%, rgba(61, 232, 255, 0.12), transparent 36%),
+    radial-gradient(circle at 82% 68%, rgba(255, 123, 156, 0.1), transparent 40%),
+    radial-gradient(ellipse at 50% 100%, rgba(40, 80, 180, 0.28), transparent 55%),
+    linear-gradient(180deg, rgba(8, 14, 36, 0.55), rgba(2, 6, 18, 0.78));
   box-shadow:
-    inset 0 0 60px rgba(0, 229, 255, 0.06),
-    0 0 40px rgba(0, 80, 140, 0.15);
+    inset 0 0 50px rgba(61, 232, 255, 0.05),
+    0 12px 40px rgba(0, 10, 40, 0.35);
 }
 
-/* Orbit rings + floating sparks inside canvas */
 .teacher-board .bubble-canvas::before {
   content: "";
   position: absolute;
-  inset: 8%;
+  inset: 10%;
   border-radius: 50%;
-  border: 1px dashed rgba(0, 229, 255, 0.12);
+  border: 1px dashed rgba(255, 123, 156, 0.16);
   pointer-events: none;
   animation: canvas-orbit 48s linear infinite;
 }
@@ -93,12 +108,12 @@
   inset: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(circle, rgba(0, 229, 255, 0.7) 0 1px, transparent 2px),
-    radial-gradient(circle, rgba(255, 213, 79, 0.55) 0 1px, transparent 2px),
-    radial-gradient(circle, rgba(0, 229, 255, 0.4) 0 1.5px, transparent 2.5px);
-  background-size: 120px 140px, 90px 110px, 160px 100px;
+    radial-gradient(circle, rgba(255, 255, 255, 0.75) 0 1px, transparent 2px),
+    radial-gradient(circle, rgba(61, 232, 255, 0.55) 0 1px, transparent 2px),
+    radial-gradient(circle, rgba(255, 123, 156, 0.45) 0 1.5px, transparent 2.5px);
+  background-size: 110px 130px, 90px 110px, 150px 100px;
   background-position: 15% 20%, 70% 40%, 45% 75%;
-  opacity: 0.45;
+  opacity: 0.4;
   animation: ambient-drift 22s linear infinite;
 }
 
@@ -110,6 +125,7 @@
   }
 }
 
+/* Anime energy orbs — glossy highlight + dual-tone rim */
 .teacher-board .energy-bubble {
   position: absolute;
   display: flex;
@@ -120,16 +136,20 @@
   text-align: center;
   padding: 0.35rem;
   will-change: transform;
-  background: radial-gradient(
-    circle at 35% 30%,
-    rgba(0, 229, 255, 0.45),
-    rgba(0, 80, 140, 0.55) 55%,
-    rgba(4, 12, 28, 0.85) 100%
-  );
-  border: 2px solid rgba(0, 229, 255, calc(0.35 + var(--bubble-glow) * 0.5));
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.55) 0%, transparent 24%),
+    radial-gradient(
+      circle at 42% 38%,
+      rgba(61, 232, 255, 0.55),
+      rgba(70, 90, 180, 0.4) 50%,
+      rgba(255, 123, 156, 0.38) 74%,
+      rgba(4, 10, 28, 0.92) 100%
+    );
+  border: 2px solid rgba(61, 232, 255, calc(0.3 + var(--bubble-glow) * 0.5));
   box-shadow:
-    0 0 calc(12px + 28px * var(--bubble-glow)) rgba(0, 229, 255, calc(0.25 + var(--bubble-glow) * 0.35)),
-    inset 0 0 16px rgba(0, 229, 255, 0.12);
+    0 0 calc(14px + 30px * var(--bubble-glow)) rgba(61, 232, 255, calc(0.22 + var(--bubble-glow) * 0.3)),
+    0 0 calc(10px + 20px * var(--bubble-glow)) rgba(255, 123, 156, 0.22),
+    inset 0 -10px 18px rgba(0, 0, 0, 0.25);
   animation: bubble-float var(--float-dur, 6.5s) ease-in-out infinite;
   animation-delay: var(--float-delay, 0s);
   transition: box-shadow 0.35s ease;
@@ -144,13 +164,18 @@
   font-size: clamp(0.85rem, 2.8vw, 1.35rem);
   line-height: 1.15;
   letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .teacher-board .bubble-score {
   font-family: var(--font-display);
   font-size: clamp(1rem, 3.2vw, 1.65rem);
-  color: var(--cyan);
   margin-top: 0.15rem;
+  background: linear-gradient(180deg, #fff, var(--cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 8px rgba(61, 232, 255, 0.45));
 }
 
 @keyframes bubble-float {
@@ -174,8 +199,10 @@
 
 @keyframes bubble-score-pulse {
   0% {
-    box-shadow: 0 0 48px rgba(0, 229, 255, 0.85);
-    transform: scale(1.08);
+    box-shadow:
+      0 0 48px rgba(61, 232, 255, 0.85),
+      0 0 36px rgba(255, 123, 156, 0.55);
+    transform: scale(1.1);
   }
   100% {
     transform: scale(1);
@@ -185,15 +212,15 @@
 .teacher-board .award-btn {
   font-family: var(--font-display);
   letter-spacing: 0.08em;
-  border-color: #ffd54f;
-  background: linear-gradient(180deg, rgba(255, 213, 79, 0.28), rgba(255, 152, 0, 0.12));
-  box-shadow: 0 0 24px rgba(255, 213, 79, 0.35);
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(255, 213, 106, 0.35), rgba(255, 123, 156, 0.15) 70%, rgba(255, 152, 0, 0.12));
+  box-shadow: 0 0 24px rgba(255, 213, 106, 0.35);
   color: #fff8e1;
 }
 
 .teacher-board .award-btn:hover:not(:disabled) {
   border-color: #ffe082;
-  box-shadow: 0 0 36px rgba(255, 213, 79, 0.5);
+  box-shadow: 0 0 36px rgba(255, 213, 106, 0.5), var(--glow-coral);
 }
 
 .teacher-board .award-btn:disabled {
@@ -202,7 +229,6 @@
   box-shadow: none;
 }
 
-/* —— Award ceremony overlay —— */
 .award-overlay {
   position: fixed;
   inset: 0;
@@ -212,7 +238,8 @@
   justify-content: center;
   padding: 1.5rem;
   background:
-    radial-gradient(ellipse 70% 50% at 50% 40%, rgba(255, 200, 60, 0.18), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 50% 40%, rgba(255, 200, 60, 0.2), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 70% 70%, rgba(255, 123, 156, 0.12), transparent 50%),
     rgba(4, 8, 18, 0.92);
   backdrop-filter: blur(6px);
   animation: award-fade-in 0.35s ease-out;
@@ -229,9 +256,9 @@
   position: absolute;
   inset: -20% -10%;
   background:
-    radial-gradient(circle at 50% 30%, rgba(0, 229, 255, 0.2), transparent 45%),
-    radial-gradient(circle at 20% 70%, rgba(255, 213, 79, 0.15), transparent 40%),
-    radial-gradient(circle at 80% 60%, rgba(255, 77, 109, 0.1), transparent 40%);
+    radial-gradient(circle at 50% 30%, rgba(61, 232, 255, 0.22), transparent 45%),
+    radial-gradient(circle at 20% 70%, rgba(255, 213, 106, 0.18), transparent 40%),
+    radial-gradient(circle at 80% 60%, rgba(255, 123, 156, 0.16), transparent 40%);
   animation: award-pulse 2.4s ease-in-out infinite;
 }
 
@@ -241,10 +268,11 @@
   font-family: var(--font-display);
   font-size: clamp(2.5rem, 9vw, 3.75rem);
   letter-spacing: 0.12em;
-  color: #ffd54f;
-  text-shadow:
-    0 0 24px rgba(255, 213, 79, 0.65),
-    0 0 48px rgba(0, 229, 255, 0.35);
+  background: linear-gradient(120deg, var(--gold), #fff, var(--coral));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 20px rgba(255, 213, 106, 0.55));
 }
 
 .award-sub {
@@ -271,15 +299,25 @@
   gap: 0.75rem 1rem;
   align-items: center;
   padding: 1rem 1.25rem;
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   background: rgba(12, 22, 38, 0.92);
-  border: 1px solid rgba(0, 229, 255, 0.25);
+  border: 1px solid rgba(61, 232, 255, 0.25);
   text-align: left;
+  clip-path: polygon(
+    0 10px,
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0 calc(100% - 10px)
+  );
 }
 
 .award-card.place-0 {
-  border-color: #ffd54f;
-  box-shadow: 0 0 32px rgba(255, 213, 79, 0.35);
+  border-color: var(--gold);
+  box-shadow: 0 0 32px rgba(255, 213, 106, 0.35);
   transform: scale(1.03);
 }
 
@@ -327,7 +365,7 @@
   font-size: 0.8rem;
   font-weight: 600;
   color: #082038;
-  background: linear-gradient(90deg, #ffd54f, #00e5ff);
+  background: linear-gradient(90deg, var(--gold), var(--cyan), var(--coral));
   border-radius: 999px;
 }
 

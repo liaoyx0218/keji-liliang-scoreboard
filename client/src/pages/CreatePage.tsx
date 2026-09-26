@@ -1,12 +1,14 @@
 import { useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { createSession } from "../api";
+import { TechBackdrop } from "../components/TechBackdrop";
 
 export function CreatePage() {
   const [info, setInfo] = useState<{ sessionId: string; studentUrl: string; teacherUrl: string } | null>(
     null
   );
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState("");
   const qrWrapRef = useRef<HTMLDivElement>(null);
 
@@ -14,6 +16,7 @@ export function CreatePage() {
     try {
       setErr("");
       setCopyFeedback("");
+      setBusy(true);
       const data = await createSession();
       const origin = window.location.origin;
       setInfo({
@@ -23,6 +26,8 @@ export function CreatePage() {
       });
     } catch {
       setErr("创建失败，请重试");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -65,26 +70,40 @@ export function CreatePage() {
 
   return (
     <main className="page create-page">
+      <TechBackdrop />
+      <span className="status-kicker">开赛准备</span>
       <h1>科技力量大 · 开赛准备</h1>
-      <p>生成学生端二维码，放到课件里；大屏用旁边按钮打开。</p>
-      <button type="button" onClick={onCreate}>
-        创建本场
-      </button>
-      {err && <p className="error">{err}</p>}
+      <p className="hero-lead">生成学生端二维码放进课件；大屏一键打开能量榜，课堂立刻开战。</p>
+      <div className="create-actions">
+        <button type="button" onClick={() => void onCreate()} disabled={busy} aria-busy={busy}>
+          {busy ? "创建中…" : "创建本场"}
+        </button>
+      </div>
+      {err && (
+        <p className="error" role="alert">
+          {err}
+        </p>
+      )}
       {info && (
-        <section>
-          <p>学生端链接（唯一）：</p>
+        <section className="panel" aria-label="本场入口">
+          <p className="panel-label">学生端链接（唯一）</p>
           <code>{info.studentUrl}</code>
           <div className="qr-wrap" ref={qrWrapRef}>
             <QRCodeCanvas value={info.studentUrl} size={256} includeMargin />
           </div>
-          <button type="button" onClick={() => void copyQrCode()}>
-            复制二维码
-          </button>
-          {copyFeedback && <p className="copy-feedback">{copyFeedback}</p>}
-          <a href={info.teacherUrl} target="_blank" rel="noreferrer">
-            打开大屏
-          </a>
+          <div className="panel-links">
+            <button type="button" onClick={() => void copyQrCode()}>
+              复制二维码
+            </button>
+            <a href={info.teacherUrl} target="_blank" rel="noreferrer">
+              打开大屏
+            </a>
+          </div>
+          {copyFeedback && (
+            <p className="copy-feedback" role="status">
+              {copyFeedback}
+            </p>
+          )}
         </section>
       )}
     </main>
