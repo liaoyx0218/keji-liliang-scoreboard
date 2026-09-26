@@ -100,7 +100,10 @@
   position: relative;
   width: 100%;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 0.85rem;
 }
 
 .student-action::before {
@@ -130,35 +133,100 @@
   z-index: 1;
 }
 
-.student-tabs {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: center;
-  margin-bottom: 0.75rem;
+.peer-entry-btn {
+  position: relative;
+  z-index: 1;
+  min-height: 48px;
+  min-width: min(100%, 280px);
+  padding: 0.65rem 1.5rem;
+  border-radius: 14px;
+  border: 1px solid rgba(61, 232, 255, 0.35);
+  background: rgba(12, 28, 48, 0.55);
+  color: var(--cyan);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
 }
-.student-tab {
+
+.peer-entry-btn:hover,
+.peer-entry-btn:focus-visible {
+  border-color: rgba(61, 232, 255, 0.65);
+  box-shadow: 0 0 18px rgba(61, 232, 255, 0.2);
+  outline: none;
+}
+
+.student-page--peer {
+  gap: 0.5rem;
+}
+
+.peer-screen-header {
+  text-align: center;
+  margin-bottom: 0.75rem;
+  position: relative;
+  padding-top: 0.25rem;
+  min-height: 3.5rem;
+}
+
+.peer-back-btn {
+  position: absolute;
+  left: 0;
+  top: 0;
   min-height: 44px;
-  padding: 0.5rem 1.25rem;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 229, 255, 0.25);
+  padding: 0.4rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(12, 28, 48, 0.6);
-  color: var(--cyan-dim);
+  color: var(--text);
   font-family: var(--font-display);
   cursor: pointer;
 }
-.student-tab.active {
+
+.peer-back-btn:hover,
+.peer-back-btn:focus-visible {
+  border-color: rgba(61, 232, 255, 0.45);
   color: var(--cyan);
-  border-color: rgba(0, 229, 255, 0.55);
-  box-shadow: 0 0 16px rgba(0, 229, 255, 0.15);
+  outline: none;
 }
+
+.peer-screen-title {
+  font-family: var(--font-display);
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  letter-spacing: 0.08em;
+  color: var(--cyan);
+  filter: drop-shadow(0 0 10px rgba(61, 232, 255, 0.25));
+}
+
+.peer-screen-sub {
+  margin: 0.25rem 0 0;
+  opacity: 0.75;
+  font-size: 0.95rem;
+}
+
 .student-peer-list {
   width: min(100%, 420px);
 }
+
+.student-page--peer .student-peer-list {
+  width: min(100%, 480px);
+  margin: 0 auto;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.peer-fail {
+  text-align: center;
+  margin: 0 0 0.5rem;
+}
+
 .student-peer-list ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
+
 .peer-row {
   display: flex;
   align-items: center;
@@ -166,11 +234,20 @@
   padding: 0.75rem 0;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
+
 .peer-name {
   flex: 1;
   font-family: var(--font-display);
   font-size: 1.25rem;
 }
+
+.peer-score {
+  font-size: 0.95rem;
+  opacity: 0.85;
+  color: var(--coral);
+  letter-spacing: 0.04em;
+}
+
 .peer-plus {
   min-width: 56px;
   min-height: 44px;
@@ -181,9 +258,18 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+.peer-plus:hover,
+.peer-plus:focus-visible {
+  border-color: rgba(61, 232, 255, 0.65);
+  box-shadow: 0 0 14px rgba(61, 232, 255, 0.2);
+  outline: none;
+}
+
 .peer-empty {
   text-align: center;
   opacity: 0.7;
+  padding: 2rem 1rem;
 }
 
 @media (orientation: landscape) and (min-width: 768px) {
@@ -193,11 +279,6 @@
     gap: 1rem;
     max-width: 1100px;
     margin: 0 auto;
-    width: 100%;
-  }
-
-  .student-tabs {
-    order: -1;
     width: 100%;
   }
 
@@ -218,14 +299,6 @@
     width: 100%;
   }
 
-  .student-peer-list {
-    flex: 1;
-    width: 100%;
-    max-width: 420px;
-    overflow-y: auto;
-    max-height: min(50vh, 360px);
-  }
-
   .student-page .plus-btn {
     width: 100%;
     max-width: 420px;
@@ -243,11 +316,6 @@
     gap: 2rem;
   }
 
-  .student-landscape:has(.student-action) .student-tabs {
-    order: 0;
-    flex: 0 0 100%;
-  }
-
   .student-landscape:has(.student-action) .student-info {
     flex: 0 0 38%;
     text-align: left;
@@ -256,6 +324,11 @@
 
   .student-landscape:has(.student-action) .student-action {
     flex: 1;
+    justify-content: center;
+  }
+
+  .student-landscape:has(.student-action) .peer-entry-btn {
+    align-self: center;
   }
 }
 

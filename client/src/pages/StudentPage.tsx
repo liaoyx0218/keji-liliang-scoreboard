@@ -7,13 +7,13 @@ import { clearBinding, loadBinding, saveBinding } from "../storage";
 import "./StudentPage.css";
 
 type Mode = "loading" | "play" | "needRejoin" | "error";
-type Tab = "self" | "peer";
+type View = "home" | "peer";
 type GroupState = { id: string; name: string; score: number };
 
 export function StudentPage() {
   const { sessionId = "" } = useParams();
   const [mode, setMode] = useState<Mode>("loading");
-  const [tab, setTab] = useState<Tab>("self");
+  const [view, setView] = useState<View>("home");
   const [group, setGroup] = useState<GroupState | null>(null);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [failMsg, setFailMsg] = useState("");
@@ -202,31 +202,52 @@ export function StudentPage() {
     );
   }
 
+  if (view === "peer") {
+    return (
+      <main className="page student-page student-page--play student-page--peer">
+        <TechBackdrop />
+        <header className="peer-screen-header">
+          <button type="button" className="peer-back-btn" onClick={() => setView("home")}>
+            返回
+          </button>
+          <h1 className="peer-screen-title">小组互评</h1>
+          <p className="peer-screen-sub">{group!.name}</p>
+        </header>
+        {failMsg && (
+          <p className="error peer-fail" role="alert">
+            {failMsg}
+          </p>
+        )}
+        <section className="student-peer-list">
+          {others.length === 0 ? (
+            <p className="peer-empty">还没有其他组</p>
+          ) : (
+            <ul>
+              {others.map((e) => (
+                <li key={e.groupId} className="peer-row">
+                  <span className="peer-name">{e.name}</span>
+                  <span className="peer-score">能量 {e.score}</span>
+                  <button
+                    type="button"
+                    className="peer-plus"
+                    onClick={() => void onPlusPeer(e.groupId)}
+                  >
+                    +2
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="page student-page student-page--play">
       <TechBackdrop />
       <header className="student-top">科技力量大</header>
       <div className="student-landscape">
-        <div className="student-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "self"}
-            className={tab === "self" ? "student-tab active" : "student-tab"}
-            onClick={() => setTab("self")}
-          >
-            给我组
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "peer"}
-            className={tab === "peer" ? "student-tab active" : "student-tab"}
-            onClick={() => setTab("peer")}
-          >
-            给别组
-          </button>
-        </div>
         <section className="student-info" aria-live="polite">
           <h1>{group!.name}</h1>
           <p className="energy">
@@ -239,40 +260,26 @@ export function StudentPage() {
             </p>
           )}
         </section>
-        {tab === "self" ? (
-          <section className="student-action">
-            <button
-              type="button"
-              className={pulse ? "plus-btn pulse" : "plus-btn"}
-              onClick={() => void onPlusSelf()}
-              aria-label="能量加二"
-            >
-              能量 +2
-            </button>
-          </section>
-        ) : (
-          <section className="student-peer-list">
-            {others.length === 0 ? (
-              <p className="peer-empty">还没有其他组</p>
-            ) : (
-              <ul>
-                {others.map((e) => (
-                  <li key={e.groupId} className="peer-row">
-                    <span className="peer-name">{e.name}</span>
-                    <span className="peer-score">能量 {e.score}</span>
-                    <button
-                      type="button"
-                      className="peer-plus"
-                      onClick={() => void onPlusPeer(e.groupId)}
-                    >
-                      +2
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
+        <section className="student-action">
+          <button
+            type="button"
+            className={pulse ? "plus-btn pulse" : "plus-btn"}
+            onClick={() => void onPlusSelf()}
+            aria-label="能量加二"
+          >
+            能量 +2
+          </button>
+          <button
+            type="button"
+            className="peer-entry-btn"
+            onClick={() => {
+              setFailMsg("");
+              setView("peer");
+            }}
+          >
+            小组互评
+          </button>
+        </section>
       </div>
     </main>
   );
