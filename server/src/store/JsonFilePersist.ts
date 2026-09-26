@@ -1,6 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { Group, Poster, Session, Wish } from "@kl/shared";
 import { SessionStore } from "./SessionStore.js";
+
+type DumpShape = {
+  sessions: Session[];
+  groupsBySession: Record<string, Group[]>;
+  wishesBySession?: Record<string, Wish[]>;
+  postersBySession?: Record<string, Poster[]>;
+};
 
 export function saveStore(filePath: string, store: SessionStore): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -10,7 +18,12 @@ export function saveStore(filePath: string, store: SessionStore): void {
 export function loadStore(filePath: string): SessionStore {
   const store = new SessionStore();
   if (!fs.existsSync(filePath)) return store;
-  const raw = JSON.parse(fs.readFileSync(filePath, "utf8")) as ReturnType<SessionStore["dump"]>;
-  store.replaceAll(raw.sessions, raw.groupsBySession);
+  const raw = JSON.parse(fs.readFileSync(filePath, "utf8")) as DumpShape;
+  store.replaceAll(
+    raw.sessions ?? [],
+    raw.groupsBySession ?? {},
+    raw.wishesBySession ?? {},
+    raw.postersBySession ?? {}
+  );
   return store;
 }

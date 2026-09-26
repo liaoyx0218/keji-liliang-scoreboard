@@ -1,0 +1,141 @@
+.poster-editor {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 0.85rem 0.85rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(16, 28, 58, 0.92), rgba(8, 14, 32, 0.8));
+  border: 1px solid rgba(61, 232, 255, 0.3);
+}
+
+.poster-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.poster-theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7rem;
+  height: 1.7rem;
+  padding: 0 0.35rem;
+  border-radius: 0.4rem;
+  background: rgba(61, 232, 255, 0.18);
+  color: var(--cyan, #3de8ff);
+  font-size: 1rem;
+}
+
+.poster-group {
+  margin: 0.25rem 0 0;
+  opacity: 0.85;
+  font-size: 0.95rem;
+}
+
+.poster-hint-line {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.poster-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+
+.poster-field span {
+  opacity: 0.8;
+}
+
+.poster-field input,
+.poster-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(61, 232, 255, 0.28);
+  background: rgba(4, 10, 24, 0.65);
+  color: inherit;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  resize: vertical;
+}
+
+.poster-field input:focus,
+.poster-field textarea:focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-color: rgba(61, 232, 255, 0.55);
+}
+
+.poster-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.poster-save,
+.poster-gen {
+  flex: 1;
+  min-width: 7rem;
+  border: none;
+  border-radius: 0.65rem;
+  padding: 0.7rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.poster-save {
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.poster-gen {
+  background: linear-gradient(135deg, #2ad4ff, #4f8cff);
+  color: #041018;
+}
+
+.poster-save:disabled,
+.poster-gen:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.poster-status {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--cyan, #3de8ff);
+}
+
+.poster-loading {
+  margin: 1rem 0;
+  text-align: center;
+  opacity: 0.85;
+}
+
+.poster-preview {
+  margin: 0.5rem 0 0;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  border: 1px solid rgba(61, 232, 255, 0.25);
+  background: #000;
+}
+
+.poster-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+}

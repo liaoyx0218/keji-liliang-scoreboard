@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import request from "supertest";
 import { SessionStore } from "../store/SessionStore.js";
 import { createApp } from "./createApp.js";
@@ -44,7 +47,7 @@ describe("HTTP API", () => {
     expect(onLeaderboard).toHaveBeenCalledTimes(0);
     const id = created.sessionId as string;
     const j1 = await request(app).post(`/api/sessions/${id}/join`).expect(201);
-    expect(j1.body.name).toBe("组一");
+    expect(j1.body.name).toBe('"衣"时光溯源队');
     expect(onLeaderboard).toHaveBeenCalledTimes(1);
     await request(app)
       .post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`)
@@ -56,7 +59,8 @@ describe("HTTP API", () => {
     expect(board.body.entries[0].score).toBe(2);
     expect(onLeaderboard).toHaveBeenCalledTimes(2);
     await request(app).post(`/api/sessions/${id}/reset`).expect(200);
-    expect(onLeaderboard).toHaveBeenCalledTimes(3);
+    // reset: leaderboard + wish_mode + peer_mode + sort_mode + poster_mode + wishes + posters
+    expect(onLeaderboard).toHaveBeenCalledTimes(9);
     const empty = await request(app).get(`/api/sessions/${id}/leaderboard`);
     expect(empty.body.entries).toEqual([]);
   });
@@ -128,6 +132,7 @@ describe("HTTP API", () => {
     const id = created.sessionId as string;
     const j1 = await request(app).post(`/api/sessions/${id}/join`);
     const j2 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app).post(`/api/sessions/${id}/peer/start`).expect(200);
     await request(app)
       .post(`/api/sessions/${id}/groups/${j2.body.groupId}/score`)
       .send({ source: "peer", fromGroupId: j1.body.groupId })
@@ -142,11 +147,25 @@ describe("HTTP API", () => {
     expect(byId[j1.body.groupId]).toBe(0);
   });
 
+  it("peer score while inactive → 400 PEER_INACTIVE", async () => {
+    const app = createApp(store);
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const j1 = await request(app).post(`/api/sessions/${id}/join`);
+    const j2 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app)
+      .post(`/api/sessions/${id}/groups/${j2.body.groupId}/score`)
+      .send({ source: "peer", fromGroupId: j1.body.groupId })
+      .expect(400)
+      .expect(({ body }) => expect(body.error).toBe("PEER_INACTIVE"));
+  });
+
   it("peer score with from===to → 400 INVALID_PEER", async () => {
     const app = createApp(store);
     const { body: created } = await request(app).post("/api/sessions");
     const id = created.sessionId as string;
     const j1 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app).post(`/api/sessions/${id}/peer/start`);
     await request(app)
       .post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`)
       .send({ source: "peer", fromGroupId: j1.body.groupId })
@@ -160,6 +179,7 @@ describe("HTTP API", () => {
     const id = created.sessionId as string;
     const j1 = await request(app).post(`/api/sessions/${id}/join`);
     const j2 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app).post(`/api/sessions/${id}/peer/start`);
     await request(app)
       .post(`/api/sessions/${id}/groups/${j2.body.groupId}/score`)
       .send({ source: "peer" })
@@ -172,6 +192,7 @@ describe("HTTP API", () => {
     const { body: created } = await request(app).post("/api/sessions");
     const id = created.sessionId as string;
     const j2 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app).post(`/api/sessions/${id}/peer/start`);
     await request(app)
       .post(`/api/sessions/${id}/groups/${j2.body.groupId}/score`)
       .send({ source: "peer", fromGroupId: "nope" })
@@ -201,5 +222,135 @@ describe("HTTP API", () => {
       .send({})
       .expect(200)
       .expect(({ body }) => expect(body.score).toBe(2));
+  });
+
+  it("wish start/stop + multiple wishes + inactive reject", async () => {
+    const onLeaderboard = vi.fn();
+    const app = createApp(store, { onLeaderboard });
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const j1 = await request(app).post(`/api/sessions/${id}/join`);
+    await request(app)
+      .post(`/api/sessions/${id}/wishes`)
+      .send({ groupId: j1.body.groupId, text: "早了" })
+      .expect(400)
+      .expect(({ body }) => expect(body.error).toBe("WISH_INACTIVE"));
+    await request(app).post(`/api/sessions/${id}/wish/start`).expect(200);
+    expect(onLeaderboard).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "wish_mode", active: true })
+    );
+    await request(app)
+      .post(`/api/sessions/${id}/wishes`)
+      .send({ groupId: j1.body.groupId, text: "我想自动浇花" })
+      .expect(201);
+    await request(app)
+      .post(`/api/sessions/${id}/wishes`)
+      .send({ groupId: j1.body.groupId, text: "我想整理书包" })
+      .expect(201);
+    const list = await request(app).get(`/api/sessions/${id}/wishes`).expect(200);
+    expect(list.body.wishActive).toBe(true);
+    expect(list.body.wishes).toHaveLength(2);
+    expect(list.body.wishes[0].groupName).toBe('"衣"时光溯源队');
+    await request(app).post(`/api/sessions/${id}/wish/stop`).expect(200);
+    await request(app)
+      .post(`/api/sessions/${id}/wishes`)
+      .send({ groupId: j1.body.groupId, text: "又一条" })
+      .expect(400);
+  });
+
+  it("GET /api/nls/token without keys → 503", async () => {
+    const prevId = process.env.ALIYUN_AK_ID;
+    const prevSecret = process.env.ALIYUN_AK_SECRET;
+    const prevKey = process.env.NLS_APP_KEY;
+    delete process.env.ALIYUN_AK_ID;
+    delete process.env.ALIYUN_AK_SECRET;
+    delete process.env.NLS_APP_KEY;
+    const app = createApp(store);
+    await request(app).get("/api/nls/token").expect(503);
+    if (prevId !== undefined) process.env.ALIYUN_AK_ID = prevId;
+    else delete process.env.ALIYUN_AK_ID;
+    if (prevSecret !== undefined) process.env.ALIYUN_AK_SECRET = prevSecret;
+    else delete process.env.ALIYUN_AK_SECRET;
+    if (prevKey !== undefined) process.env.NLS_APP_KEY = prevKey;
+    else delete process.env.NLS_APP_KEY;
+  });
+
+  it("peer start/stop + modes endpoint", async () => {
+    const onLeaderboard = vi.fn();
+    const app = createApp(store, { onLeaderboard });
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const modes0 = await request(app).get(`/api/sessions/${id}/modes`).expect(200);
+    expect(modes0.body).toEqual({
+      wishActive: false,
+      peerActive: false,
+      sortActive: false,
+      posterActive: false,
+    });
+    await request(app).post(`/api/sessions/${id}/peer/start`).expect(200);
+    expect(onLeaderboard).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "peer_mode", active: true })
+    );
+    const modes1 = await request(app).get(`/api/sessions/${id}/modes`).expect(200);
+    expect(modes1.body.peerActive).toBe(true);
+    expect(modes1.body.sortActive).toBe(false);
+    await request(app).post(`/api/sessions/${id}/wish/start`).expect(200);
+    const modes2 = await request(app).get(`/api/sessions/${id}/modes`).expect(200);
+    expect(modes2.body).toEqual({
+      wishActive: true,
+      peerActive: false,
+      sortActive: false,
+      posterActive: false,
+    });
+    await request(app).post(`/api/sessions/${id}/sort/start`).expect(200);
+    const modes3 = await request(app).get(`/api/sessions/${id}/modes`).expect(200);
+    expect(modes3.body).toEqual({
+      wishActive: false,
+      peerActive: false,
+      sortActive: true,
+      posterActive: false,
+    });
+    await request(app).post(`/api/sessions/${id}/poster/start`).expect(200);
+    const modes4 = await request(app).get(`/api/sessions/${id}/modes`).expect(200);
+    expect(modes4.body).toEqual({
+      wishActive: false,
+      peerActive: false,
+      sortActive: false,
+      posterActive: true,
+    });
+    await request(app).post(`/api/sessions/${id}/peer/stop`).expect(200);
+  });
+
+  it("poster template + generate with mock ark", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kl-poster-"));
+    const generatePosterImage = vi.fn(async (deps: { destPath: string }) => {
+      fs.mkdirSync(path.dirname(deps.destPath), { recursive: true });
+      fs.writeFileSync(deps.destPath, Buffer.from("fake-png"));
+    });
+    const app = createApp(store, {
+      posterDir: dir,
+      posterCooldownMs: 0,
+      generatePosterImage: generatePosterImage as never,
+      getArkConfig: () => ({ apiKey: "k", model: "m" }),
+    });
+    const { body: created } = await request(app).post("/api/sessions");
+    const id = created.sessionId as string;
+    const j = await request(app).post(`/api/sessions/${id}/join`).expect(201);
+    await request(app).post(`/api/sessions/${id}/poster/start`).expect(200);
+    const tpl = await request(app)
+      .get(`/api/sessions/${id}/poster/template`)
+      .query({ groupId: j.body.groupId })
+      .expect(200);
+    expect(tpl.body.defaults.title).toBeTruthy();
+    expect(tpl.body.role).toBe("origin");
+    const gen = await request(app)
+      .post(`/api/sessions/${id}/groups/${j.body.groupId}/poster/generate`)
+      .send({ fields: tpl.body.defaults })
+      .expect(200);
+    expect(gen.body.poster.imageUrl).toContain(`/media/posters/${id}/`);
+    expect(generatePosterImage).toHaveBeenCalledOnce();
+    const list = await request(app).get(`/api/sessions/${id}/posters`).expect(200);
+    expect(list.body.posters).toHaveLength(1);
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });

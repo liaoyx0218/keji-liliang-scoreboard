@@ -1,5 +1,5 @@
 import type { WebSocket } from "ws";
-import type { LeaderboardPayload } from "@kl/shared";
+import type { SessionWsPayload } from "@kl/shared";
 
 export class LeaderboardHub {
   private rooms = new Map<string, Set<WebSocket>>();
@@ -13,7 +13,7 @@ export class LeaderboardHub {
     for (const set of this.rooms.values()) set.delete(ws);
   }
 
-  broadcast(payload: LeaderboardPayload) {
+  broadcast(payload: SessionWsPayload) {
     const set = this.rooms.get(payload.sessionId);
     if (!set) return;
     const raw = JSON.stringify(payload);
