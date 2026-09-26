@@ -58,6 +58,38 @@
   font-weight: 600;
 }
 
+.teacher-board .award-fail-toast {
+  width: 100%;
+  text-align: center;
+  margin: 0;
+  color: #ff8a80;
+  font-weight: 600;
+}
+
+.teacher-board .score-floater {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #7dffb3;
+  text-shadow: 0 0 12px rgba(80, 255, 160, 0.8);
+  animation: score-float-up 0.85s ease-out forwards;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes score-float-up {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -40%) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -120%) scale(1.2);
+  }
+}
+
 .teacher-board .bubble-canvas {
   position: relative;
   width: 100%;
@@ -111,6 +143,11 @@
 }
 
 .teacher-board .energy-bubble {
+  appearance: none;
+  padding: 0.35rem;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
   position: absolute;
   display: flex;
   flex-direction: column;
@@ -118,7 +155,6 @@
   justify-content: center;
   border-radius: 50%;
   text-align: center;
-  padding: 0.35rem;
   will-change: transform;
   background: radial-gradient(
     circle at 35% 30%,
