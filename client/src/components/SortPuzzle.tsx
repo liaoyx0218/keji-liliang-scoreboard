@@ -69,6 +69,49 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
   useEffect(() => {
     const root = document.documentElement;
     const body = document.body;
+    const scrollY = window.scrollY;
+    root.classList.add("sort-mode-active");
+    body.classList.add("sort-mode-active");
+    body.style.top = `-${scrollY}px`;
+
+    // 平板浏览器：排序页全程禁止页面滚动手势（含下拉刷新、长按菜单）
+    const blockTouchMove = (ev: TouchEvent) => {
+      const t = ev.target;
+      if (t instanceof Element && t.closest(".sort-panel.is-dragging")) {
+        ev.preventDefault();
+        return;
+      }
+      // 仅允许排序面板内部滚动；禁止整页/下拉刷新
+      if (!(t instanceof Element) || !t.closest(".sort-panel")) {
+        ev.preventDefault();
+        return;
+      }
+    };
+    const blockContextMenu = (ev: Event) => {
+      ev.preventDefault();
+    };
+    const blockSelectStart = (ev: Event) => {
+      ev.preventDefault();
+    };
+
+    document.addEventListener("touchmove", blockTouchMove, { passive: false });
+    document.addEventListener("contextmenu", blockContextMenu, true);
+    document.addEventListener("selectstart", blockSelectStart, true);
+
+    return () => {
+      root.classList.remove("sort-mode-active");
+      body.classList.remove("sort-mode-active");
+      body.style.top = "";
+      window.scrollTo(0, scrollY);
+      document.removeEventListener("touchmove", blockTouchMove);
+      document.removeEventListener("contextmenu", blockContextMenu, true);
+      document.removeEventListener("selectstart", blockSelectStart, true);
+    };
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
     if (!dragging) {
       root.classList.remove("sort-dragging");
       body.classList.remove("sort-dragging");
@@ -289,7 +332,10 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
   const liftingId = ghost?.payload.id ?? null;
 
   return (
-    <div className={dragging ? "sort-panel is-dragging" : "sort-panel"}>
+    <div
+      className={dragging ? "sort-panel is-dragging" : "sort-panel"}
+      onContextMenu={(e) => e.preventDefault()}
+    >
       <header className="sort-head">
         <div className="sort-title-row">
           <h2>
@@ -326,6 +372,7 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerCancel}
+              onContextMenu={(e) => e.preventDefault()}
               onClick={(e) => e.stopPropagation()}
             >
               <img src={card.image} alt={card.label} draggable={false} />
@@ -373,6 +420,7 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
                         onPointerMove={onPointerMove}
                         onPointerUp={onPointerUp}
                         onPointerCancel={onPointerCancel}
+                        onContextMenu={(e) => e.preventDefault()}
                         onClick={(e) => e.stopPropagation()}
                         aria-label={`${card.label}，第${index + 1}节`}
                       >

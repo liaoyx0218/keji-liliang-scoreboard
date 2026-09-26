@@ -292,10 +292,39 @@
 }
 
 .student-page--sort {
+  box-sizing: border-box;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   justify-content: flex-start;
-  padding-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
   overscroll-behavior: none;
-  touch-action: pan-y;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: auto;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+html.sort-mode-active,
+html.sort-mode-active body {
+  height: 100%;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  overscroll-behavior-y: none !important;
+  /* 平板 Chrome 下拉刷新 */
+  overscroll-behavior-y: none;
+}
+
+body.sort-mode-active {
+  position: fixed;
+  left: 0;
+  right: 0;
+  width: 100%;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 html.sort-dragging,
