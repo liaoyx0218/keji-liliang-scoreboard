@@ -242,4 +242,64 @@ describe("SessionStore", () => {
       sortActive: false,
     });
   });
+
+  it("submitSort records correct and incorrect orders while sort active", () => {
+    store.createSession();
+    const g = store.join("fixed-session");
+    if (!("group" in g)) throw new Error("join");
+    expect(
+      store.submitSort("fixed-session", g.group.id, [
+        "hide",
+        "hemp",
+        "hand_cotton",
+        "machine_cotton",
+        "modern",
+      ])
+    ).toEqual({ error: "SORT_INACTIVE" });
+    store.setSortActive("fixed-session", true);
+    const ok = store.submitSort("fixed-session", g.group.id, [
+      "hide",
+      "hemp",
+      "hand_cotton",
+      "machine_cotton",
+      "modern",
+    ]);
+    if ("error" in ok) throw new Error("submit ok failed");
+    expect(ok.submission.correct).toBe(true);
+    const bad = store.submitSort("fixed-session", g.group.id, [
+      "modern",
+      "hemp",
+      "hand_cotton",
+      "machine_cotton",
+      "hide",
+    ]);
+    if ("error" in bad) throw new Error("submit bad failed");
+    expect(bad.submission.correct).toBe(false);
+    const payload = store.sortsPayload("fixed-session");
+    if ("error" in payload) throw new Error("payload");
+    expect(payload.submissions).toHaveLength(1);
+    expect(payload.submissions[0]!.correct).toBe(false);
+  });
+
+  it("re-enabling sort mode keeps prior submissions", () => {
+    store.createSession();
+    const g = store.join("fixed-session");
+    if (!("group" in g)) throw new Error("join");
+    store.setSortActive("fixed-session", true);
+    const ok = store.submitSort("fixed-session", g.group.id, [
+      "hide",
+      "hemp",
+      "hand_cotton",
+      "machine_cotton",
+      "modern",
+    ]);
+    if ("error" in ok) throw new Error("submit failed");
+    store.setSortActive("fixed-session", false);
+    store.setSortActive("fixed-session", true);
+    const payload = store.sortsPayload("fixed-session");
+    if ("error" in payload) throw new Error("payload");
+    expect(payload.sortActive).toBe(true);
+    expect(payload.submissions).toHaveLength(1);
+    expect(payload.submissions[0]!.groupId).toBe(g.group.id);
+  });
 });

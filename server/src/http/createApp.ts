@@ -68,6 +68,12 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
     emit(payload);
   };
 
+  const broadcastSorts = (sessionId: string) => {
+    const payload = store.sortsPayload(sessionId);
+    if ("error" in payload) return;
+    emit(payload);
+  };
+
   const broadcastWishMode = (sessionId: string, active: boolean) => {
     emit({ type: "wish_mode", sessionId, active });
   };
@@ -93,7 +99,10 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
       broadcastWishes(sessionId);
     }
     if (turnedOff.peer) broadcastPeerMode(sessionId, false);
-    if (turnedOff.sort) broadcastSortMode(sessionId, false);
+    if (turnedOff.sort) {
+      broadcastSortMode(sessionId, false);
+      broadcastSorts(sessionId);
+    }
     if (turnedOff.poster) {
       broadcastPosterMode(sessionId, false);
       broadcastPosters(sessionId);
@@ -219,6 +228,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
     broadcastPosterMode(req.params.sessionId, false);
     broadcastWishes(req.params.sessionId);
     broadcastPosters(req.params.sessionId);
+    broadcastSorts(req.params.sessionId);
     res.json({ resetAt: result.resetAt, entries: [] });
   });
 
@@ -274,6 +284,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
     notifyChange();
     broadcastTurnedOff(req.params.sessionId, result.turnedOff);
     broadcastSortMode(req.params.sessionId, true);
+    broadcastSorts(req.params.sessionId);
     res.json({ sortActive: true, wishActive: false, peerActive: false, posterActive: false });
   });
 
@@ -282,7 +293,34 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
     if ("error" in result) return res.status(404).json({ error: result.error });
     notifyChange();
     broadcastSortMode(req.params.sessionId, false);
+    broadcastSorts(req.params.sessionId);
     res.json({ sortActive: false });
+  });
+
+  app.get("/api/sessions/:sessionId/sorts", (req, res) => {
+    const payload = store.sortsPayload(req.params.sessionId);
+    if ("error" in payload) return res.status(404).json({ error: payload.error });
+    res.json(payload);
+  });
+
+  app.post("/api/sessions/:sessionId/sorts", (req, res) => {
+    const groupId = typeof req.body?.groupId === "string" ? req.body.groupId : "";
+    const order = Array.isArray(req.body?.order) ? req.body.order : null;
+    if (!groupId || !order) return res.status(400).json({ error: "BAD_REQUEST" });
+    const result = store.submitSort(req.params.sessionId, groupId, order);
+    if ("error" in result) {
+      const code = result.error;
+      const status =
+        code === "NOT_FOUND" || code === "GROUP_NOT_FOUND"
+          ? 404
+          : code === "SORT_INACTIVE"
+            ? 409
+            : 400;
+      return res.status(status).json({ error: code });
+    }
+    notifyChange();
+    broadcastSorts(req.params.sessionId);
+    res.status(201).json(result.submission);
   });
 
   app.post("/api/sessions/:sessionId/poster/start", (req, res) => {
@@ -416,6 +454,8 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
         model: ark.model,
         prompt,
         destPath,
+        size: ark.models[0]?.size ?? "2560x1440",
+        models: ark.models,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "ARK_GENERATE_FAILED";

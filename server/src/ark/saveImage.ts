@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { generateArkImage } from "./images.js";
+import {
+  generateArkImage,
+  generateArkImageWithFallback,
+  type ArkModelAttempt,
+} from "./images.js";
 
 export async function downloadImageToFile(
   source: { url?: string; b64_json?: string },
@@ -27,18 +31,35 @@ export type PosterGenerateDeps = {
   prompt: string;
   destPath: string;
   size?: string;
+  /** Preferred: try these models in order (flash → fallback). */
+  models?: ArkModelAttempt[];
   fetchImpl?: typeof fetch;
   generate?: typeof generateArkImage;
+  generateWithFallback?: typeof generateArkImageWithFallback;
 };
 
 export async function generateAndSavePosterImage(deps: PosterGenerateDeps): Promise<void> {
-  const generate = deps.generate ?? generateArkImage;
-  const result = await generate({
-    apiKey: deps.apiKey,
-    model: deps.model,
-    prompt: deps.prompt,
-    size: deps.size,
-    fetchImpl: deps.fetchImpl,
-  });
+  const models =
+    deps.models?.length ?
+      deps.models
+    : [{ model: deps.model, size: deps.size }];
+
+  const generateWithFallback = deps.generateWithFallback ?? generateArkImageWithFallback;
+  const result =
+    deps.generate ?
+      await deps.generate({
+        apiKey: deps.apiKey,
+        model: models[0]!.model,
+        prompt: deps.prompt,
+        size: models[0]!.size,
+        fetchImpl: deps.fetchImpl,
+      })
+    : await generateWithFallback({
+        apiKey: deps.apiKey,
+        prompt: deps.prompt,
+        models,
+        fetchImpl: deps.fetchImpl,
+      });
+
   await downloadImageToFile(result, deps.destPath, deps.fetchImpl);
 }

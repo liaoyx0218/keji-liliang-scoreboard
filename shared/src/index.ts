@@ -9,6 +9,8 @@ export type {
   WishModePayload,
   PeerModePayload,
   SortModePayload,
+  SortSubmission,
+  SortSubmissionsPayload,
   PosterModePayload,
   WishesPayload,
   PostersPayload,
@@ -16,8 +18,10 @@ export type {
 } from "./types.js";
 export {
   seqToGroupName,
+  seqToTeamLabel,
   seqToTheme,
   seqToThemeLabel,
+  stripThemePrefix,
 } from "./groupName.js";
 export type { SortTheme } from "./groupName.js";
 export {

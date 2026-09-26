@@ -88,7 +88,9 @@
 
 .teacher-board .board-pane .empty-panel,
 .teacher-board .board-pane .bubble-canvas,
-.teacher-board .board-pane .wish-wall {
+.teacher-board .board-pane .wish-wall,
+.teacher-board .board-pane .poster-wall,
+.teacher-board .board-pane .sort-wall {
   flex: 1;
   min-height: 0;
   width: 100%;
@@ -142,6 +144,7 @@
   touch-action: manipulation;
   border-width: 1px;
   border-style: solid;
+  border-color: rgba(61, 232, 255, 0.45);
 }
 
 .teacher-board .energy-bubble,
@@ -154,9 +157,8 @@
 }
 
 .teacher-board .board-actions > button.is-on {
-  border-color: rgba(61, 232, 255, 0.7);
-  box-shadow: inset 0 0 0 1px rgba(61, 232, 255, 0.35), 0 0 16px rgba(61, 232, 255, 0.22);
-  color: var(--cyan);
+  border-color: rgba(255, 123, 156, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(255, 123, 156, 0.28), 0 0 16px rgba(255, 123, 156, 0.18);
   /* avoid layout shift from border/glow */
   outline: none;
 }
@@ -164,7 +166,6 @@
 .teacher-board .clear-scores-btn {
   position: relative;
   overflow: hidden;
-  border-color: rgba(61, 232, 255, 0.45);
 }
 
 .teacher-board .clear-scores-progress {
@@ -268,7 +269,8 @@
 /* Anime energy orbs — glossy highlight + dual-tone rim */
 .teacher-board .energy-bubble {
   appearance: none;
-  padding: 0.35rem;
+  padding: calc(var(--bubble-size, 100) * 0.06 * 1px);
+  box-sizing: border-box;
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -277,6 +279,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: calc(var(--bubble-size, 100) * 0.02 * 1px);
   border-radius: 50%;
   text-align: center;
   will-change: transform;
@@ -305,16 +308,19 @@
 
 .teacher-board .bubble-name {
   font-family: var(--font-display);
-  font-size: clamp(0.85rem, 2.8vw, 1.35rem);
-  line-height: 1.15;
-  letter-spacing: 0.04em;
+  font-size: clamp(0.72rem, calc(var(--bubble-size, 100) * 0.145 * 1px), 1.65rem);
+  line-height: 1.12;
+  letter-spacing: 0.02em;
+  max-width: 92%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .teacher-board .bubble-score {
   font-family: var(--font-display);
-  font-size: clamp(1rem, 3.2vw, 1.65rem);
-  margin-top: 0.15rem;
+  font-size: clamp(0.88rem, calc(var(--bubble-size, 100) * 0.2 * 1px), 2.05rem);
+  line-height: 1;
   background: linear-gradient(180deg, #fff, var(--cyan));
   -webkit-background-clip: text;
   background-clip: text;
@@ -356,14 +362,14 @@
 .teacher-board .award-btn {
   font-family: var(--font-display);
   letter-spacing: 0.08em;
-  border-color: var(--gold);
+  border-color: rgba(61, 232, 255, 0.45);
   background: linear-gradient(180deg, rgba(255, 213, 106, 0.35), rgba(255, 123, 156, 0.15) 70%, rgba(255, 152, 0, 0.12));
   box-shadow: 0 0 24px rgba(255, 213, 106, 0.35);
   color: #fff8e1;
 }
 
 .teacher-board .award-btn:hover:not(:disabled) {
-  border-color: #ffe082;
+  border-color: rgba(61, 232, 255, 0.7);
   box-shadow: 0 0 36px rgba(255, 213, 106, 0.5), var(--glow-coral);
 }
 
@@ -565,7 +571,7 @@
 .teacher-board .peer-toggle-btn,
 .teacher-board .sort-toggle-btn,
 .teacher-board .poster-toggle-btn {
-  border-color: rgba(255, 123, 156, 0.45);
+  border-color: rgba(61, 232, 255, 0.45);
 }
 
 .teacher-board .wish-live-hint,
@@ -588,50 +594,124 @@
 
 .teacher-board .wish-wall {
   margin-top: 0.5rem;
-  overflow: auto;
-  padding: 0.25rem 0.25rem 1rem 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.25rem 0.15rem 0.5rem 0;
   border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.teacher-board .wish-theme-cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.teacher-board .wish-theme-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(61, 232, 255, 0.28);
+  background: linear-gradient(165deg, rgba(14, 24, 48, 0.9), rgba(6, 12, 28, 0.78));
+  overflow: hidden;
+}
+
+.teacher-board .wish-theme-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.65rem 0.85rem 0.5rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(61, 232, 255, 0.14);
+}
+
+.teacher-board .wish-theme-label {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  color: var(--coral);
+}
+
+.teacher-board .wish-theme-count {
+  min-width: 1.45rem;
+  height: 1.45rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--cyan);
+  background: rgba(61, 232, 255, 0.12);
+}
+
+.teacher-board .wish-theme-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.65rem 0.7rem 0.85rem;
   scrollbar-gutter: stable;
 }
 
-.teacher-board .wish-grid {
+.teacher-board .wish-theme-empty {
+  margin: 0.5rem 0;
+  opacity: 0.5;
+  font-size: 0.95rem;
+}
+
+.teacher-board .wish-chat-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1rem;
-}
-
-.teacher-board .wish-tile {
-  width: 100%;
-  min-height: 8.5rem;
-  padding: 1rem 1.1rem;
-  text-align: left;
-  border-radius: 16px;
-  border: 1px solid rgba(61, 232, 255, 0.28);
-  background: linear-gradient(155deg, rgba(16, 28, 58, 0.88), rgba(8, 14, 32, 0.72));
-  color: inherit;
-  cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  box-shadow: 0 0 20px rgba(61, 232, 255, 0.06);
+  gap: 0.7rem;
 }
 
-.teacher-board .wish-tile.enter {
-  animation: wish-enter 0.55s ease-out;
+.teacher-board .wish-bubble {
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.28rem;
 }
 
-.teacher-board .wish-tile-group {
-  font-family: var(--font-display);
-  color: var(--coral);
-  font-size: 1.05rem;
+.teacher-board .wish-bubble-name {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  padding-left: 0.15rem;
 }
 
-.teacher-board .wish-tile-text {
-  font-size: 1.15rem;
+.teacher-board .wish-bubble-text {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 4px 14px 14px 14px;
+  background: rgba(61, 232, 255, 0.14);
+  border: 1px solid rgba(61, 232, 255, 0.22);
+  font-size: 1.02rem;
   line-height: 1.45;
+  word-break: break-word;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.teacher-board .wish-bubble.enter .wish-bubble-text {
+  animation: wish-enter 0.55s ease-out;
 }
 
 .teacher-board .wish-focus-overlay {
@@ -687,8 +767,10 @@
 
 .teacher-board .poster-wall {
   margin-top: 0.5rem;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
-  padding: 0.25rem 0.25rem 1rem 0;
+  padding: 0.25rem 0.15rem 0.5rem 0;
   border-radius: var(--radius-lg);
   scrollbar-gutter: stable;
 }
@@ -698,8 +780,8 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
 .teacher-board .poster-tile {
@@ -708,7 +790,7 @@
   width: 100%;
   padding: 0;
   border: 1px solid rgba(61, 232, 255, 0.28);
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   background: rgba(8, 14, 32, 0.85);
   color: inherit;
@@ -716,40 +798,176 @@
   text-align: left;
 }
 
-.teacher-board .poster-tile img {
+.teacher-board .poster-tile.is-pending {
+  cursor: default;
+}
+
+.teacher-board .poster-tile img,
+.teacher-board .poster-tile-placeholder {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
   background: #000;
 }
 
+.teacher-board .poster-tile-placeholder {
+  display: grid;
+  place-items: center;
+  background: rgba(8, 16, 36, 0.9);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.9rem;
+}
+
 .teacher-board .poster-tile-group {
-  padding: 0.55rem 0.7rem;
+  padding: 0.45rem 0.6rem;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+}
+
+.teacher-board .poster-focus-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.25rem 1.25rem;
+  background: rgba(2, 6, 18, 0.88);
+  backdrop-filter: blur(4px);
+}
+
+.teacher-board .poster-focus-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 2;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 1.85rem;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+.teacher-board .poster-focus-close:hover,
+.teacher-board .poster-focus-close:focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+  outline: none;
+}
+
+.teacher-board .poster-focus-img {
+  display: block;
+  max-width: min(96vw, 1100px);
+  max-height: 92vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.teacher-board .sort-wall {
+  margin-top: 0.5rem;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.25rem 0.15rem 0.5rem 0;
+  border-radius: var(--radius-lg);
+  scrollbar-gutter: stable;
+}
+
+.teacher-board .sort-result-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.teacher-board .sort-result-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.6rem 0.65rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 14, 32, 0.88);
+  min-width: 0;
+}
+
+.teacher-board .sort-result-card.is-ok {
+  border: 1.5px solid rgba(90, 210, 150, 0.5);
+  box-shadow: 0 0 10px rgba(61, 220, 132, 0.1);
+}
+
+.teacher-board .sort-result-card.is-bad {
+  border: 1.5px solid rgba(255, 120, 130, 0.55);
+  box-shadow: 0 0 10px rgba(255, 95, 109, 0.12);
+}
+
+.teacher-board .sort-result-card.is-pending {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.teacher-board .sort-result-wait {
+  margin: 0.35rem 0 0.15rem;
+  opacity: 0.5;
+  font-size: 0.9rem;
+}
+
+.teacher-board .sort-result-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.teacher-board .sort-result-group {
   font-family: var(--font-display);
   font-size: 0.95rem;
+  letter-spacing: 0.04em;
 }
 
-.teacher-board .poster-focus-card {
-  position: relative;
-  z-index: 1;
-  width: min(92vw, 720px);
-  max-height: 92vh;
-  overflow: auto;
-  padding: 1.25rem 1.25rem 1.5rem;
-  border-radius: 24px;
-  border: 1px solid rgba(61, 232, 255, 0.4);
-  background: linear-gradient(150deg, rgba(12, 22, 48, 0.96), rgba(6, 12, 28, 0.92));
-  text-align: center;
-  box-shadow: 0 0 48px rgba(61, 232, 255, 0.18);
+.teacher-board .sort-result-theme {
+  opacity: 0.7;
+  font-size: 0.85rem;
 }
 
-.teacher-board .poster-focus-card img {
+.teacher-board .sort-result-strip {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0.3rem;
+}
+
+.teacher-board .sort-result-strip img,
+.teacher-board .sort-result-missing {
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 72vh;
-  object-fit: contain;
-  margin: 0 auto 1.25rem;
-  border-radius: 12px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.teacher-board .sort-result-missing {
+  display: grid;
+  place-items: center;
+  opacity: 0.6;
 }

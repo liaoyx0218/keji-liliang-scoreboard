@@ -32,14 +32,24 @@ export function seqToGroupName(seq: number): string {
   if (!Number.isInteger(seq) || seq < 1 || seq > 99) {
     throw new Error(`seq out of range: ${seq}`);
   }
+  return `"${seqToThemeLabel(seq)}"${seqToTeamLabel(seq)}`;
+}
+
+/** 队名不含衣/食/住前缀，适合泡泡等紧凑展示 */
+export function seqToTeamLabel(seq: number): string {
+  if (!Number.isInteger(seq) || seq < 1 || seq > 99) {
+    throw new Error(`seq out of range: ${seq}`);
+  }
   const themeIdx = Math.floor((seq - 1) / 3) % 3;
   const slot = (seq - 1) % 3;
   const round = Math.floor((seq - 1) / 9);
   const meta = THEME_META[themeIdx];
-  if (round === 0) {
-    return `"${meta.label}"${meta.teams[slot]}`;
-  }
-  // 超过 9 组：主题循环 + 中文序数队
+  if (round === 0) return meta.teams[slot];
   const ordinal = round * 3 + slot + 1;
-  return `"${meta.label}"${seqToChineseOrdinal(ordinal)}队`;
+  return `${seqToChineseOrdinal(ordinal)}队`;
+}
+
+/** Strip `"衣"` / `"食"` / `"住"` prefix from a full group name. */
+export function stripThemePrefix(name: string): string {
+  return name.replace(/^"[衣食住]"/, "");
 }

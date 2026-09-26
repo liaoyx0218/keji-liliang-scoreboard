@@ -5,10 +5,15 @@ import {
   type Wish,
   type Poster,
   type PosterFields,
+  type SortSubmission,
   type LeaderboardPayload,
   type WishesPayload,
   type PostersPayload,
+  type SortSubmissionsPayload,
   seqToGroupName,
+  seqToTheme,
+  isSortCorrect,
+  getSortPuzzle,
 } from "@kl/shared";
 
 type IdFn = () => string;
@@ -30,6 +35,8 @@ export class SessionStore {
   private wishes = new Map<string, Wish[]>();
   /** sessionId -> groupId -> Poster */
   private posters = new Map<string, Map<string, Poster>>();
+  /** sessionId -> groupId -> SortSubmission */
+  private sorts = new Map<string, Map<string, SortSubmission>>();
 
   constructor(
     private readonly newSessionId: IdFn = () => nanoid(16),
@@ -44,6 +51,7 @@ export class SessionStore {
     this.groups.clear();
     this.wishes.clear();
     this.posters.clear();
+    this.sorts.clear();
     const ts = this.now();
     const session: Session = {
       id: this.newSessionId(),
@@ -60,6 +68,7 @@ export class SessionStore {
     this.groups.set(session.id, []);
     this.wishes.set(session.id, []);
     this.posters.set(session.id, new Map());
+    this.sorts.set(session.id, new Map());
     return session;
   }
 
@@ -109,6 +118,7 @@ export class SessionStore {
     this.groups.set(sessionId, []);
     this.wishes.set(sessionId, []);
     this.posters.set(sessionId, new Map());
+    this.sorts.set(sessionId, new Map());
     session.nextGroupSeq = 1;
     session.resetAt = this.now();
     session.wishActive = false;
@@ -170,6 +180,49 @@ export class SessionStore {
     const turnedOff = active ? this.clearOtherModes(session, "sort") : {};
     session.sortActive = active;
     return { session, turnedOff };
+  }
+
+  submitSort(sessionId: string, groupId: string, order: string[]) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return { error: "NOT_FOUND" as const };
+    if (!session.sortActive) return { error: "SORT_INACTIVE" as const };
+    const group = (this.groups.get(sessionId) ?? []).find((g) => g.id === groupId);
+    if (!group) return { error: "GROUP_NOT_FOUND" as const };
+    if (!Array.isArray(order) || order.some((id) => typeof id !== "string")) {
+      return { error: "INVALID_ORDER" as const };
+    }
+    const theme = seqToTheme(group.seq);
+    const puzzle = getSortPuzzle(theme);
+    if (order.length !== puzzle.order.length) return { error: "INVALID_ORDER" as const };
+    const ids = new Set(puzzle.cards.map((c) => c.id));
+    if (order.some((id) => !ids.has(id)) || new Set(order).size !== order.length) {
+      return { error: "INVALID_ORDER" as const };
+    }
+    const submission: SortSubmission = {
+      groupId,
+      groupName: seqToGroupName(group.seq),
+      seq: group.seq,
+      theme,
+      order: [...order],
+      correct: isSortCorrect(theme, order),
+      submittedAt: this.now(),
+    };
+    if (!this.sorts.has(sessionId)) this.sorts.set(sessionId, new Map());
+    this.sorts.get(sessionId)!.set(groupId, submission);
+    return { submission };
+  }
+
+  sortsPayload(sessionId: string): SortSubmissionsPayload | { error: "NOT_FOUND" } {
+    const session = this.sessions.get(sessionId);
+    if (!session) return { error: "NOT_FOUND" };
+    const map = this.sorts.get(sessionId) ?? new Map();
+    const submissions = [...map.values()].sort((a, b) => a.seq - b.seq);
+    return {
+      type: "sorts",
+      sessionId,
+      sortActive: session.sortActive,
+      submissions,
+    };
   }
 
   setPosterActive(sessionId: string, active: boolean) {
@@ -309,12 +362,14 @@ export class SessionStore {
     sessions: Session[],
     groupsBySession: Record<string, Group[]>,
     wishesBySession: Record<string, Wish[]> = {},
-    postersBySession: Record<string, Poster[]> = {}
+    postersBySession: Record<string, Poster[]> = {},
+    sortsBySession: Record<string, SortSubmission[]> = {}
   ) {
     this.sessions.clear();
     this.groups.clear();
     this.wishes.clear();
     this.posters.clear();
+    this.sorts.clear();
     for (const s of sessions) this.sessions.set(s.id, normalizeSession(s));
     for (const [id, gs] of Object.entries(groupsBySession)) this.groups.set(id, gs);
     for (const [id, ws] of Object.entries(wishesBySession)) this.wishes.set(id, ws);
@@ -323,10 +378,16 @@ export class SessionStore {
       for (const p of list) map.set(p.groupId, p);
       this.posters.set(id, map);
     }
+    for (const [id, list] of Object.entries(sortsBySession)) {
+      const map = new Map<string, SortSubmission>();
+      for (const s of list) map.set(s.groupId, s);
+      this.sorts.set(id, map);
+    }
     for (const id of this.sessions.keys()) {
       if (!this.groups.has(id)) this.groups.set(id, []);
       if (!this.wishes.has(id)) this.wishes.set(id, []);
       if (!this.posters.has(id)) this.posters.set(id, new Map());
+      if (!this.sorts.has(id)) this.sorts.set(id, new Map());
     }
   }
 
@@ -335,11 +396,16 @@ export class SessionStore {
     for (const [id, map] of this.posters.entries()) {
       postersBySession[id] = [...map.values()];
     }
+    const sortsBySession: Record<string, SortSubmission[]> = {};
+    for (const [id, map] of this.sorts.entries()) {
+      sortsBySession[id] = [...map.values()];
+    }
     return {
       sessions: [...this.sessions.values()],
       groupsBySession: Object.fromEntries(this.groups.entries()),
       wishesBySession: Object.fromEntries(this.wishes.entries()),
       postersBySession,
+      sortsBySession,
     };
   }
 }

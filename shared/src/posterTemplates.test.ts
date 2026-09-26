@@ -35,11 +35,14 @@ describe("posterTemplates", () => {
     const pa = buildPosterPrompt(a, a.defaults, `"衣"时光溯源队`);
     const pb = buildPosterPrompt(b, b.defaults, `"衣"科技赋能队`);
     const pc = buildPosterPrompt(c, c.defaults, `"衣"生活畅想队`);
-    expect(pa).toContain("弯曲道路");
+    expect(pa).toContain("横向时间带");
+    expect(pa).toContain("横版");
     expect(pb).toContain("科技发明卡片");
     expect(pc).toContain("未来");
     expect(pa).toContain("小学生");
     expect(pa).toContain("横线纸本");
+    expect(pa).toContain("16:9");
+    expect(pa).not.toContain("竖版");
     expect(pa).not.toEqual(pb);
     expect(pb).not.toEqual(pc);
     expect(pa).toContain("视觉差异");

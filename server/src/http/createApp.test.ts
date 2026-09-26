@@ -331,7 +331,11 @@ describe("HTTP API", () => {
       posterDir: dir,
       posterCooldownMs: 0,
       generatePosterImage: generatePosterImage as never,
-      getArkConfig: () => ({ apiKey: "k", model: "m" }),
+      getArkConfig: () => ({
+        apiKey: "k",
+        model: "m",
+        models: [{ model: "m", size: "2560x1440" }],
+      }),
     });
     const { body: created } = await request(app).post("/api/sessions");
     const id = created.sessionId as string;

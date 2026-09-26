@@ -93,6 +93,20 @@ export async function stopSortMode(sessionId: string) {
   return json(await fetch(`/api/sessions/${sessionId}/sort/stop`, { method: "POST" }));
 }
 
+export async function fetchSorts(sessionId: string, init?: RequestInit) {
+  return json(await fetch(`/api/sessions/${sessionId}/sorts`, init));
+}
+
+export async function submitSort(sessionId: string, groupId: string, order: string[]) {
+  return json(
+    await fetch(`/api/sessions/${sessionId}/sorts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId, order }),
+    })
+  );
+}
+
 export async function fetchSessionModes(sessionId: string, init?: RequestInit) {
   return json(await fetch(`/api/sessions/${sessionId}/modes`, init)) as Promise<{
     wishActive: boolean;

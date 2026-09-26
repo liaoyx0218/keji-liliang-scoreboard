@@ -82,6 +82,8 @@ wss.on("connection", (ws, req) => {
     ws.send(JSON.stringify({ type: "peer_mode", sessionId, active: session.peerActive }));
     ws.send(JSON.stringify({ type: "sort_mode", sessionId, active: session.sortActive }));
   }
+  const sorts = store.sortsPayload(sessionId);
+  if (!("error" in sorts)) ws.send(JSON.stringify(sorts));
   ws.on("close", () => hub.unsubscribe(ws));
 });
 

@@ -16,12 +16,17 @@ import {
 import { PosterEditor } from "../components/PosterEditor";
 import { SortPuzzlePanel } from "../components/SortPuzzle";
 import { TechBackdrop } from "../components/TechBackdrop";
-import { startNlsAsr, type NlsAsrSession } from "../lib/nlsAsr";
+import {
+  createWishAudioContext,
+  openWishMicrophone,
+  resumeWishAudioContext,
+  startNlsAsr,
+  type NlsAsrSession,
+} from "../lib/nlsAsr";
 import { clearBinding, loadBinding, saveBinding } from "../storage";
 import "./StudentPage.css";
 
 type Mode = "loading" | "play" | "needRejoin" | "error";
-type PeerView = "home" | "peer";
 type GroupState = { id: string; name: string; score: number; seq: number };
 
 export function StudentPage() {
@@ -33,7 +38,6 @@ export function StudentPage() {
   const [pulse, setPulse] = useState(false);
   const [wishActive, setWishActive] = useState(false);
   const [peerActive, setPeerActive] = useState(false);
-  const [peerView, setPeerView] = useState<PeerView>("home");
   const [sortActive, setSortActive] = useState(false);
   const [posterActive, setPosterActive] = useState(false);
   const [wishDraft, setWishDraft] = useState("");
@@ -50,7 +54,6 @@ export function StudentPage() {
       setPeerActive(Boolean(m.peerActive));
       setSortActive(Boolean(m.sortActive));
       setPosterActive(Boolean(m.posterActive));
-      setPeerView(m.peerActive ? "peer" : "home");
     } catch {
       try {
         const w = await fetchWishes(sessionId);
@@ -61,7 +64,6 @@ export function StudentPage() {
       setPeerActive(false);
       setSortActive(false);
       setPosterActive(false);
-      setPeerView("home");
     }
   }, [sessionId]);
 
@@ -161,9 +163,6 @@ export function StudentPage() {
           setWishActive(false);
           setSortActive(false);
           setPosterActive(false);
-          setPeerView("peer");
-        } else {
-          setPeerView("home");
         }
         return;
       }
@@ -191,6 +190,10 @@ export function StudentPage() {
       }
       if (msg.type === "posters") {
         setPosterActive(Boolean(msg.posterActive));
+        return;
+      }
+      if (msg.type === "sorts") {
+        setSortActive(Boolean(msg.sortActive));
         return;
       }
       if (msg.type !== "leaderboard") return;
@@ -234,6 +237,21 @@ export function StudentPage() {
     };
   }, []);
 
+  /** 切模式时滚回顶部；离开排序时清掉 body 锁，避免标题被顶出视口 */
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    if (sortActive) return;
+    const root = document.documentElement;
+    const body = document.body;
+    root.classList.remove("sort-mode-active", "sort-dragging");
+    body.classList.remove("sort-mode-active", "sort-dragging");
+    body.style.position = "";
+    body.style.top = "";
+    body.style.left = "";
+    body.style.right = "";
+    body.style.width = "";
+  }, [wishActive, peerActive, sortActive, posterActive]);
+
   async function onRejoin() {
     clearBinding(sessionId);
     await doJoin();
@@ -273,36 +291,100 @@ export function StudentPage() {
     }
   }
 
-  async function onWishPointerDown() {
-    if (!wishActive || wishBusy || wishListening) return;
-    setWishHint("");
+  async function stopWishAsr(): Promise<string> {
+    const session = asrRef.current;
+    asrRef.current = null;
+    setWishListening(false);
+    if (!session) return "";
+    try {
+      return await session.stop();
+    } catch {
+      return "";
+    }
+  }
+
+  async function onWishStartSpeak() {
+    if (!wishActive) return;
+    if (wishBusy) {
+      setWishHint("请稍候…");
+      return;
+    }
     setWishOk("");
     setWishBusy(true);
+    setWishHint("正在打开麦克风…");
+
+    // 先清掉上一轮残留，避免平板 getUserMedia 一直挂起
+    await stopWishAsr();
+
+    let stream: MediaStream | null = null;
+    let audioCtx: AudioContext | null = null;
     try {
-      const { token, appkey } = await fetchNlsToken();
-      const session = await startNlsAsr(token, appkey, (ev) => {
-        if (ev.type === "partial" || ev.type === "final") setWishDraft(ev.text);
-        if (ev.type === "error") setWishHint(ev.message);
-      });
+      // 在 await 开麦前同步创建，尽量保住点击手势
+      audioCtx = createWishAudioContext();
+      const resumeTask = resumeWishAudioContext(audioCtx);
+
+      stream = await openWishMicrophone(6000);
+      setWishHint("正在连接听写…");
+      await resumeTask;
+
+      const { token, appkey } = await Promise.race([
+        fetchNlsToken(),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error("听写服务超时")), 8000);
+        }),
+      ]);
+
+      const ownedStream = stream;
+      const ownedCtx = audioCtx;
+      stream = null;
+      audioCtx = null;
+      const session = await startNlsAsr(
+        token,
+        appkey,
+        (ev) => {
+          if (ev.type === "partial" || ev.type === "final") setWishDraft(ev.text);
+          if (ev.type === "error") setWishHint(ev.message);
+        },
+        { stream: ownedStream, audioCtx: ownedCtx }
+      );
       asrRef.current = session;
       setWishListening(true);
-    } catch {
-      setWishHint("麦克风不可用");
+      setWishHint("请开始说话…");
+    } catch (e) {
+      stream?.getTracks().forEach((t) => t.stop());
+      if (audioCtx) {
+        try {
+          await audioCtx.close();
+        } catch {
+          /* ignore */
+        }
+      }
+      asrRef.current = null;
+      setWishListening(false);
+      const name = e instanceof DOMException ? e.name : "";
+      const msg = e instanceof Error ? e.message : "";
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        setWishHint("请允许使用麦克风后重试");
+      } else if (name === "NotFoundError") {
+        setWishHint("未找到麦克风");
+      } else if (msg) {
+        setWishHint(msg);
+      } else {
+        setWishHint("听写启动失败，请再试");
+      }
     } finally {
       setWishBusy(false);
     }
   }
 
-  async function onWishPointerUp() {
-    if (!asrRef.current) return;
-    const session = asrRef.current;
-    asrRef.current = null;
-    setWishListening(false);
+  async function onWishStopSpeak() {
+    if (wishBusy) return;
     setWishBusy(true);
+    setWishHint("");
     try {
-      const text = await session.stop();
+      const text = await stopWishAsr();
       if (text) setWishDraft(text);
-      else if (!wishDraft) setWishHint("没听清");
+      else if (!wishDraft.trim()) setWishHint("没听清，可再说一次或手改");
     } catch {
       setWishHint("听写失败");
     } finally {
@@ -316,9 +398,10 @@ export function StudentPage() {
     setWishHint("");
     setWishOk("");
     try {
+      await stopWishAsr();
       await submitWish(sessionId, group.id, wishDraft.trim());
       setWishDraft("");
-      setWishOk("已提交");
+      setWishOk("已提交，可继续许愿");
     } catch (e) {
       if (isNeedRejoinError(e)) {
         setMode("needRejoin");
@@ -380,34 +463,30 @@ export function StudentPage() {
     return (
       <main className="page student-page student-page--play student-page--wish">
         <TechBackdrop />
+        <header className="student-top">科技心愿卡</header>
         <div className="wish-card" aria-live="polite">
           <p className="wish-group">{group!.name}</p>
           <textarea
             className="wish-draft"
-            rows={3}
+            rows={6}
             maxLength={200}
             value={wishDraft}
             onChange={(e) => setWishDraft(e.target.value)}
             placeholder="说出愿望，也可手改"
           />
+          <p className="wish-count" aria-live="polite">
+            {wishDraft.length}/200
+          </p>
           <button
             type="button"
             className={wishListening ? "wish-mic listening" : "wish-mic"}
             disabled={wishBusy}
-            onPointerDown={(e) => {
-              e.preventDefault();
-              void onWishPointerDown();
-            }}
-            onPointerUp={(e) => {
-              e.preventDefault();
-              void onWishPointerUp();
-            }}
-            onPointerCancel={() => void onWishPointerUp()}
-            onPointerLeave={() => {
-              if (wishListening) void onWishPointerUp();
+            onClick={() => {
+              if (wishListening) void onWishStopSpeak();
+              else void onWishStartSpeak();
             }}
           >
-            {wishListening ? "松开结束" : "按住说话"}
+            {wishBusy && !wishListening ? "连接中…" : wishListening ? "结束说" : "开始说"}
           </button>
           <button
             type="button"
@@ -432,7 +511,13 @@ export function StudentPage() {
     return (
       <main className="page student-page student-page--play student-page--sort">
         <TechBackdrop />
-        <SortPuzzlePanel theme={seqToTheme(group.seq)} groupName={group.name} />
+        <header className="student-top">时光排序</header>
+        <SortPuzzlePanel
+          theme={seqToTheme(group.seq)}
+          groupName={group.name}
+          sessionId={sessionId}
+          groupId={group.id}
+        />
       </main>
     );
   }
@@ -441,6 +526,7 @@ export function StudentPage() {
     return (
       <main className="page student-page student-page--play student-page--poster">
         <TechBackdrop />
+        <header className="student-top">AI 手抄报</header>
         <PosterEditor
           sessionId={sessionId}
           groupId={group.id}
@@ -451,42 +537,31 @@ export function StudentPage() {
     );
   }
 
-  if (peerActive && peerView === "peer") {
+  if (peerActive) {
     return (
       <main className="page student-page student-page--play student-page--peer">
         <TechBackdrop />
-        <header className="peer-screen-header">
-          <button
-            type="button"
-            className="peer-back-btn"
-            onClick={() => {
-              setFailMsg("");
-              setPeerView("home");
-            }}
-          >
-            返回
-          </button>
-          <h1 className="peer-screen-title">小组互评</h1>
-          <p className="peer-screen-sub">{group!.name}</p>
-        </header>
+        <header className="student-top">小组互评</header>
+        <p className="peer-screen-sub peer-screen-sub--under-top">{group!.name}</p>
         {failMsg && (
           <p className="error peer-fail" role="alert">
             {failMsg}
           </p>
         )}
-        <section className="student-peer-list">
+        <section className="peer-wall" aria-label="小组互评">
           {others.length === 0 ? (
             <p className="peer-empty">还没有其他组</p>
           ) : (
-            <ul>
+            <ul className="peer-wall-grid">
               {others.map((e) => (
-                <li key={e.groupId} className="peer-row">
-                  <span className="peer-name">{e.name}</span>
-                  <span className="peer-score">能量 {e.score}</span>
+                <li key={e.groupId} className="peer-tile">
+                  <span className="peer-tile-name">{e.name}</span>
+                  <span className="peer-tile-score">{e.score}</span>
                   <button
                     type="button"
                     className="peer-plus"
                     onClick={() => void onPlusPeer(e.groupId)}
+                    aria-label={`给${e.name}加二能量`}
                   >
                     +2
                   </button>
@@ -502,6 +577,7 @@ export function StudentPage() {
   return (
     <main className="page student-page student-page--play student-page--energy">
       <TechBackdrop />
+      <header className="student-top">科技力量大</header>
       <div className="student-energy-stage">
         <section className="student-energy-card" aria-live="polite">
           <h1 className="energy-group">{group!.name}</h1>
@@ -521,18 +597,6 @@ export function StudentPage() {
           >
             能量 +2
           </button>
-          {peerActive && (
-            <button
-              type="button"
-              className="peer-entry-btn"
-              onClick={() => {
-                setFailMsg("");
-                setPeerView("peer");
-              }}
-            >
-              小组互评
-            </button>
-          )}
         </section>
       </div>
     </main>

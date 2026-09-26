@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { SortTheme } from "@kl/shared";
 import { getSortPuzzle, isSortCorrect } from "@kl/shared";
+import { fetchSorts, submitSort } from "../api";
 import "./SortPuzzle.css";
 
 function shuffle<T>(arr: T[]): T[] {
@@ -29,12 +30,14 @@ type GhostState = {
 type Props = {
   theme: SortTheme;
   groupName: string;
+  sessionId?: string;
+  groupId?: string;
 };
 
 const THEME_INDEX: Record<SortTheme, number> = { yi: 1, shi: 2, zhu: 3 };
 const DRAG_THRESHOLD_PX = 8;
 
-export function SortPuzzlePanel({ theme, groupName }: Props) {
+export function SortPuzzlePanel({ theme, groupName, sessionId, groupId }: Props) {
   const puzzle = useMemo(() => getSortPuzzle(theme), [theme]);
   const slotCount = puzzle.order.length;
   const [pool, setPool] = useState(() => shuffle(puzzle.cards.map((c) => c.id)));
@@ -44,6 +47,8 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
   const [hoverSlot, setHoverSlot] = useState<number | null>(null);
   const [hoverPool, setHoverPool] = useState(false);
   const [result, setResult] = useState<"ok" | "bad" | null>(null);
+  const [recheckOpen, setRecheckOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const poolRef = useRef(pool);
   const slotsRef = useRef(slots);
@@ -65,14 +70,52 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
   const byId = useMemo(() => new Map(puzzle.cards.map((c) => [c.id, c])), [puzzle]);
   const filled = slots.every((id) => id !== null);
   const dragging = Boolean(ghost);
+  const locked = result !== null;
+
+  /** 切回时光排序时恢复本组已提交结果，避免学生端重新变成未提交 */
+  useEffect(() => {
+    if (!sessionId || !groupId) return;
+    let dead = false;
+    void (async () => {
+      try {
+        const data = await fetchSorts(sessionId);
+        if (dead) return;
+        const list = Array.isArray(data.submissions) ? data.submissions : [];
+        const mine = list.find(
+          (s: { groupId?: string }) => s.groupId === groupId
+        ) as { order?: string[]; correct?: boolean } | undefined;
+        if (!mine?.order?.length) return;
+        const ids = new Set(puzzle.cards.map((c) => c.id));
+        if (
+          mine.order.length !== slotCount ||
+          mine.order.some((id) => !ids.has(id)) ||
+          new Set(mine.order).size !== mine.order.length
+        ) {
+          return;
+        }
+        setSlots([...mine.order]);
+        setPool([]);
+        setResult(mine.correct ? "ok" : "bad");
+        setRecheckOpen(false);
+        setPicked(null);
+        setGhost(null);
+      } catch {
+        /* keep fresh board */
+      }
+    })();
+    return () => {
+      dead = true;
+    };
+  }, [sessionId, groupId, puzzle.cards, slotCount]);
 
   useEffect(() => {
     const root = document.documentElement;
     const body = document.body;
-    const scrollY = window.scrollY;
+    // 从顶锁定：勿用 -scrollY，否则整页（含标题）被顶出视口
+    window.scrollTo(0, 0);
     root.classList.add("sort-mode-active");
     body.classList.add("sort-mode-active");
-    body.style.top = `-${scrollY}px`;
+    body.style.top = "0";
 
     // 平板浏览器：排序页全程禁止页面滚动手势（含下拉刷新、长按菜单）
     const blockTouchMove = (ev: TouchEvent) => {
@@ -102,7 +145,7 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
       root.classList.remove("sort-mode-active");
       body.classList.remove("sort-mode-active");
       body.style.top = "";
-      window.scrollTo(0, scrollY);
+      window.scrollTo(0, 0);
       document.removeEventListener("touchmove", blockTouchMove);
       document.removeEventListener("contextmenu", blockContextMenu, true);
       document.removeEventListener("selectstart", blockSelectStart, true);
@@ -212,6 +255,7 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
   }
 
   function onPointerDown(payload: DragPayload, e: ReactPointerEvent<HTMLElement>) {
+    if (locked || busy) return;
     if (e.button !== 0 && e.pointerType === "mouse") return;
     const card = byId.get(payload.id);
     if (!card) return;
@@ -305,6 +349,7 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
   }
 
   function onSlotTap(index: number) {
+    if (locked || busy) return;
     if (ghost || pressRef.current?.dragging) return;
     const id = slots[index];
     if (picked) {
@@ -316,16 +361,46 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
   }
 
   function onPoolBackgroundTap() {
-    if (ghost || pressRef.current?.dragging) return;
+    if (locked || busy || ghost || pressRef.current?.dragging) return;
     if (picked?.from === "slot") {
       applyReturn(picked);
       setPicked(null);
     }
   }
 
-  function submit() {
-    if (!filled) return;
-    setResult(isSortCorrect(theme, slots as string[]) ? "ok" : "bad");
+  async function sendSubmission(order: string[], ok: boolean) {
+    setResult(ok ? "ok" : "bad");
+    setRecheckOpen(false);
+    setPicked(null);
+    setGhost(null);
+    setHoverSlot(null);
+    setHoverPool(false);
+    pressRef.current = null;
+    if (!sessionId || !groupId) return;
+    setBusy(true);
+    try {
+      await submitSort(sessionId, groupId, order);
+    } catch {
+      /* teacher may miss this attempt */
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onSubmitClick() {
+    if (!filled || busy || locked) return;
+    const order = slots as string[];
+    const ok = isSortCorrect(theme, order);
+    if (ok) {
+      void sendSubmission(order, true);
+      return;
+    }
+    setRecheckOpen(true);
+  }
+
+  function onConfirmSubmitAnyway() {
+    if (!filled || busy || locked) return;
+    void sendSubmission(slots as string[], false);
   }
 
   const active = ghost?.payload ?? picked;
@@ -333,7 +408,13 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
 
   return (
     <div
-      className={dragging ? "sort-panel is-dragging" : "sort-panel"}
+      className={[
+        "sort-panel",
+        dragging ? "is-dragging" : "",
+        locked ? "is-locked" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       onContextMenu={(e) => e.preventDefault()}
     >
       <header className="sort-head">
@@ -367,6 +448,7 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
               ]
                 .filter(Boolean)
                 .join(" ")}
+              disabled={locked}
               onPointerDown={(e) => onPointerDown({ from: "pool", id }, e)}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
@@ -378,7 +460,9 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
             </button>
           );
         })}
-        {pool.length === 0 && <p className="sort-pool-empty">拖回可调整</p>}
+        {pool.length === 0 && (
+          <p className="sort-pool-empty">{locked ? "已提交" : "拖回可调整"}</p>
+        )}
       </section>
 
       <section className="sort-train" aria-label="从古到今排序">
@@ -412,6 +496,7 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
                       <button
                         type="button"
                         className={isLifted ? "sort-slot-card is-lifted" : "sort-slot-card"}
+                        disabled={locked}
                         onPointerDown={(e) => {
                           e.stopPropagation();
                           onPointerDown({ from: "slot", index, id: card.id }, e);
@@ -440,12 +525,48 @@ export function SortPuzzlePanel({ theme, groupName }: Props) {
       </section>
 
       <div className="sort-actions">
-        <button type="button" className="sort-submit" disabled={!filled} onClick={submit}>
-          提交
+        <button
+          type="button"
+          className="sort-submit"
+          disabled={!filled || busy || locked}
+          onClick={onSubmitClick}
+        >
+          {busy ? "提交中…" : locked ? "已提交" : "提交"}
         </button>
       </div>
-      {result === "ok" && <p className="sort-ok">顺序正确</p>}
-      {result === "bad" && <p className="sort-bad">顺序不对</p>}
+
+      {recheckOpen && (
+        <div
+          className="sort-recheck"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sort-recheck-title"
+        >
+          <div className="sort-recheck-card">
+            <p id="sort-recheck-title" className="sort-recheck-title">
+              要不要再对一遍顺序？
+            </p>
+            <p className="sort-recheck-lead">调一调也许更顺，也可以先提交。</p>
+            <div className="sort-recheck-actions">
+              <button
+                type="button"
+                className="sort-recheck-secondary"
+                onClick={() => setRecheckOpen(false)}
+              >
+                再看看
+              </button>
+              <button
+                type="button"
+                className="sort-recheck-primary"
+                disabled={busy}
+                onClick={onConfirmSubmitAnyway}
+              >
+                先提交
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {ghost && (
         <div

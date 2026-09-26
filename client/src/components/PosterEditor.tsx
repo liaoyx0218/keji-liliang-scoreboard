@@ -29,6 +29,7 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
   });
   const [imageUrl, setImageUrl] = useState("");
   const [showResult, setShowResult] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
   const previewRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -61,7 +62,9 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
 
   useEffect(() => {
     if (!showResult || !imageUrl) return;
-    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // 只滚编辑区内，勿 scrollIntoView 整页，否则会把「AI 手抄报」顶出视口
+    window.scrollTo(0, 0);
+    previewRef.current?.scrollTo({ top: 0 });
   }, [showResult, imageUrl]);
 
   function patch(key: keyof PosterFields, value: string) {
@@ -70,7 +73,7 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
 
   async function onGenerate() {
     setBusy(true);
-    setHint("生成中…");
+    setHint("");
     setShowResult(false);
     try {
       const r = await generatePoster(sessionId, groupId, fields);
@@ -112,30 +115,64 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
 
   if (showResult && imageUrl) {
     return (
-      <div className="poster-editor poster-editor--result" ref={previewRef}>
-        <div className="poster-head poster-head--compact">
-          <h2>
-            <span className="poster-theme">{themeLabel}</span>
-            {groupName}
-          </h2>
+      <>
+        <div className="poster-editor poster-editor--result" ref={previewRef}>
+          <div className="poster-head poster-head--compact">
+            <h2>
+              <span className="poster-theme">{themeLabel}</span>
+              {groupName}
+            </h2>
+          </div>
+          <figure className="poster-preview poster-preview--hero">
+            <button
+              type="button"
+              className="poster-preview-hit"
+              aria-label="放大预览手抄报"
+              onClick={() => setZoomOpen(true)}
+            >
+              <img src={imageUrl} alt={`${groupName}手抄报`} />
+            </button>
+          </figure>
+          <div className="poster-actions">
+            <button
+              type="button"
+              className="poster-gen"
+              disabled={busy}
+              onClick={() => {
+                setZoomOpen(false);
+                setShowResult(false);
+                setHint("");
+              }}
+            >
+              重新生成
+            </button>
+          </div>
         </div>
-        <figure className="poster-preview poster-preview--hero">
-          <img src={imageUrl} alt={`${groupName}手抄报`} />
-        </figure>
-        <div className="poster-actions">
-          <button
-            type="button"
-            className="poster-gen"
-            disabled={busy}
-            onClick={() => {
-              setShowResult(false);
-              setHint("");
-            }}
+        {zoomOpen && (
+          <div
+            className="poster-zoom-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="手抄报放大预览"
+            onClick={() => setZoomOpen(false)}
           >
-            重新生成
-          </button>
-        </div>
-      </div>
+            <button
+              type="button"
+              className="poster-zoom-close"
+              aria-label="关闭"
+              onClick={() => setZoomOpen(false)}
+            >
+              ×
+            </button>
+            <img
+              className="poster-zoom-img"
+              src={imageUrl}
+              alt={`${groupName}手抄报`}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+      </>
     );
   }
 
@@ -169,7 +206,7 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
       <label className="poster-field">
         <span>正文</span>
         <textarea
-          rows={6}
+          rows={5}
           value={fields.body}
           maxLength={1200}
           disabled={busy}

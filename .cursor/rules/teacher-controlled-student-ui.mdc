@@ -1,0 +1,10 @@
+---
+description: Student pages are teacher-controlled; no local back/mode switches
+alwaysApply: true
+---
+
+# Classroom mode control
+
+- Student tablet UI modes (energy / peer / wish / sort / poster) are switched only by the teacher board toggles (WebSocket / session modes).
+- Do not add student-side「返回」、入口按钮、或本地切换去离开教师开启的模式。
+- When the teacher turns a mode off, the student returns to the default energy page automatically.

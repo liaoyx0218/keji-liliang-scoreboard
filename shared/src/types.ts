@@ -80,6 +80,24 @@ export type SortModePayload = {
   active: boolean;
 };
 
+export type SortSubmission = {
+  groupId: string;
+  groupName: string;
+  seq: number;
+  theme: "yi" | "shi" | "zhu";
+  /** 学生提交的卡片 id 顺序（古→今） */
+  order: string[];
+  correct: boolean;
+  submittedAt: string;
+};
+
+export type SortSubmissionsPayload = {
+  type: "sorts";
+  sessionId: string;
+  sortActive: boolean;
+  submissions: SortSubmission[];
+};
+
 export type PosterModePayload = {
   type: "poster_mode";
   sessionId: string;
@@ -105,6 +123,7 @@ export type SessionWsPayload =
   | WishModePayload
   | PeerModePayload
   | SortModePayload
+  | SortSubmissionsPayload
   | PosterModePayload
   | WishesPayload
   | PostersPayload;

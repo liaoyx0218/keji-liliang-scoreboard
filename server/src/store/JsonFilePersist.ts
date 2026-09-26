@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Group, Poster, Session, Wish } from "@kl/shared";
+import type { Group, Poster, Session, SortSubmission, Wish } from "@kl/shared";
 import { SessionStore } from "./SessionStore.js";
 
 type DumpShape = {
@@ -8,6 +8,7 @@ type DumpShape = {
   groupsBySession: Record<string, Group[]>;
   wishesBySession?: Record<string, Wish[]>;
   postersBySession?: Record<string, Poster[]>;
+  sortsBySession?: Record<string, SortSubmission[]>;
 };
 
 export function saveStore(filePath: string, store: SessionStore): void {
@@ -23,7 +24,8 @@ export function loadStore(filePath: string): SessionStore {
     raw.sessions ?? [],
     raw.groupsBySession ?? {},
     raw.wishesBySession ?? {},
-    raw.postersBySession ?? {}
+    raw.postersBySession ?? {},
+    raw.sortsBySession ?? {}
   );
   return store;
 }

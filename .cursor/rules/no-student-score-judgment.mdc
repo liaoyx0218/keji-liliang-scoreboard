@@ -1,0 +1,11 @@
+---
+description: Classroom tone — no score/right-wrong labeling toward students
+alwaysApply: true
+---
+
+# No scores or right/wrong toward students
+
+- Do not show evaluative labels to students such as「正确」「不对」「闯关成功」「分数」「得分」or similar right/wrong / grading copy.
+- Student feedback should stay process-oriented (e.g. keep trying, adjust order) or silent visual cues only when the teacher screen needs a mark.
+- Teacher big-screen may use a soft red border for incorrect sort submissions and a soft green border for correct ones (teacher-only visual cue); do not put「正确 / 不对」text on those cards, and do not show right/wrong labels on the student tablet.
+- Prefer teacher-controlled modes over student self-grading UI.

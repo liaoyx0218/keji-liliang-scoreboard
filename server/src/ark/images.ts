@@ -3,13 +3,32 @@ export type ArkImageResult = {
   b64_json?: string;
 };
 
+export type ArkModelAttempt = {
+  model: string;
+  size?: string;
+};
+
 export type GenerateImageOptions = {
   apiKey: string;
   model: string;
   prompt: string;
-  /** e.g. "1440x2560" or "2K" */
+  /** e.g. "2560x1440" (横版) or "2K" */
   size?: string;
   fetchImpl?: typeof fetch;
+};
+
+export type GenerateImageFallbackOptions = {
+  apiKey: string;
+  prompt: string;
+  models: ArkModelAttempt[];
+  fetchImpl?: typeof fetch;
+};
+
+export type ArkConfig = {
+  apiKey: string;
+  model: string;
+  fallbackModel?: string;
+  models: ArkModelAttempt[];
 };
 
 export async function generateArkImage(opts: GenerateImageOptions): Promise<ArkImageResult> {
@@ -23,7 +42,7 @@ export async function generateArkImage(opts: GenerateImageOptions): Promise<ArkI
     body: JSON.stringify({
       model: opts.model,
       prompt: opts.prompt,
-      size: opts.size ?? "2K",
+      size: opts.size ?? "2560x1440",
       response_format: "url",
       watermark: false,
     }),
@@ -52,9 +71,49 @@ export async function generateArkImage(opts: GenerateImageOptions): Promise<ArkI
   return { url: first.url, b64_json: first.b64_json };
 }
 
-export function getArkConfigFromEnv(env: NodeJS.ProcessEnv = process.env) {
+/** Try models in order; only throw after all attempts fail. */
+export async function generateArkImageWithFallback(
+  opts: GenerateImageFallbackOptions
+): Promise<ArkImageResult> {
+  if (!opts.models.length) {
+    throw new Error("ARK_GENERATE_FAILED:NO_MODELS");
+  }
+  let lastError: Error | undefined;
+  for (const attempt of opts.models) {
+    try {
+      return await generateArkImage({
+        apiKey: opts.apiKey,
+        model: attempt.model,
+        prompt: opts.prompt,
+        size: attempt.size,
+        fetchImpl: opts.fetchImpl,
+      });
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+    }
+  }
+  throw lastError ?? new Error("ARK_GENERATE_FAILED");
+}
+
+export function getArkConfigFromEnv(env: NodeJS.ProcessEnv = process.env): ArkConfig | null {
   const apiKey = (env.ARK_API_KEY ?? "").trim();
   const model = (env.ARK_IMAGE_MODEL ?? "").trim();
   if (!apiKey || !model) return null;
-  return { apiKey, model };
+
+  const size = (env.ARK_IMAGE_SIZE ?? "2560x1440").trim() || "2560x1440";
+  const fallbackModel = (env.ARK_IMAGE_MODEL_FALLBACK ?? "").trim();
+  const fallbackSize =
+    (env.ARK_IMAGE_SIZE_FALLBACK ?? env.ARK_IMAGE_SIZE ?? "2560x1440").trim() || "2560x1440";
+
+  const models: ArkModelAttempt[] = [{ model, size }];
+  if (fallbackModel && fallbackModel !== model) {
+    models.push({ model: fallbackModel, size: fallbackSize });
+  }
+
+  return {
+    apiKey,
+    model,
+    ...(fallbackModel && fallbackModel !== model ? { fallbackModel } : {}),
+    models,
+  };
 }

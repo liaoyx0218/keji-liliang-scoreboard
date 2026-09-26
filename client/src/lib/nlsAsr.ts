@@ -13,6 +13,13 @@ type NlsFrame = {
   payload?: { result?: string };
 };
 
+export type StartNlsAsrOptions = {
+  /** Must be acquired in the same user-gesture turn as the button click. */
+  stream: MediaStream;
+  /** Must be created/resumed in the same user-gesture turn (before any await for token). */
+  audioCtx: AudioContext;
+};
+
 function hexId(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
@@ -43,13 +50,71 @@ export type NlsAsrSession = {
   stop: () => Promise<string>;
 };
 
+export function createWishAudioContext(): AudioContext {
+  const AC =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  return new AC();
+}
+
+/** Open mic with a hard timeout — tablets can hang forever on getUserMedia. */
+export function openWishMicrophone(timeoutMs = 6000): Promise<MediaStream> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return Promise.reject(new Error("当前浏览器不支持麦克风"));
+  }
+  let settled = false;
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("打开麦克风超时，请检查系统麦克风权限后重试"));
+    }, timeoutMs);
+
+    // 约束越简单，平板越不容易卡死
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then((stream) => {
+        if (settled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(stream);
+      })
+      .catch((err: unknown) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+/** Resume AudioContext but never block the UI forever. */
+export async function resumeWishAudioContext(audioCtx: AudioContext, timeoutMs = 1500): Promise<void> {
+  if (audioCtx.state === "running") return;
+  try {
+    await Promise.race([
+      audioCtx.resume(),
+      new Promise<void>((resolve) => {
+        window.setTimeout(resolve, timeoutMs);
+      }),
+    ]);
+  } catch {
+    /* ignore — onaudioprocess may still kick it later */
+  }
+}
+
 /**
- * Opens mic + Aliyun realtime ASR. Call stop() to end and get best final text.
+ * Connects an already-opened mic + AudioContext to Aliyun realtime ASR.
+ * Call stop() to end and get best final text.
  */
 export async function startNlsAsr(
   token: string,
   appkey: string,
-  onEvent?: (ev: NlsAsrEvent) => void
+  onEvent: ((ev: NlsAsrEvent) => void) | undefined,
+  opts: StartNlsAsrOptions
 ): Promise<NlsAsrSession> {
   let finalText = "";
   let partialText = "";
@@ -57,16 +122,21 @@ export async function startNlsAsr(
   let closed = false;
   const queue: Uint8Array[] = [];
   const taskId = hexId();
+  const { stream, audioCtx } = opts;
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      channelCount: 1,
-      echoCancellation: true,
-      noiseSuppression: true,
-    },
-  });
+  if (audioCtx.state === "suspended") {
+    try {
+      await Promise.race([
+        audioCtx.resume(),
+        new Promise<void>((resolve) => {
+          window.setTimeout(resolve, 1500);
+        }),
+      ]);
+    } catch {
+      /* ignore */
+    }
+  }
 
-  const audioCtx = new AudioContext();
   const source = audioCtx.createMediaStreamSource(stream);
   const processor = audioCtx.createScriptProcessor(4096, 1, 1);
   const mute = audioCtx.createGain();
@@ -79,6 +149,7 @@ export async function startNlsAsr(
   ws.binaryType = "arraybuffer";
 
   const command = (name: "StartTranscription" | "StopTranscription") => {
+    if (ws.readyState !== WebSocket.OPEN) return;
     const header = {
       message_id: hexId(),
       task_id: taskId,
@@ -115,57 +186,100 @@ export async function startNlsAsr(
 
   processor.onaudioprocess = (ev) => {
     if (closed) return;
+    if (audioCtx.state === "suspended") {
+      void audioCtx.resume();
+      return;
+    }
     const input = ev.inputBuffer.getChannelData(0);
     const pcm = downsampleTo16k(input, audioCtx.sampleRate);
     sendPcm(pcm);
   };
 
-  ws.onopen = () => {
-    if (!closed) command("StartTranscription");
-  };
+  const ready = new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error("听写连接超时"));
+    }, 10000);
 
-  ws.onmessage = (ev) => {
-    if (typeof ev.data !== "string") return;
-    let event: NlsFrame;
-    try {
-      event = JSON.parse(ev.data) as NlsFrame;
-    } catch {
-      return;
-    }
-    const name = event.header?.name;
-    const status = event.header?.status;
-    if (
-      name === "TaskFailed" ||
-      (typeof status === "number" && status !== 20000000 && name !== "SentenceEnd")
-    ) {
-      onEvent?.({ type: "error", message: event.header?.status_text || "听写失败" });
-      return;
-    }
-    if (name === "TranscriptionStarted") {
-      started = true;
-      for (const chunk of queue) {
-        if (ws.readyState === WebSocket.OPEN) ws.send(chunk);
+    ws.onopen = () => {
+      if (!closed) command("StartTranscription");
+    };
+
+    ws.onerror = () => {
+      window.clearTimeout(timer);
+      onEvent?.({ type: "error", message: "听写连接失败" });
+      reject(new Error("听写连接失败"));
+    };
+
+    ws.onmessage = (ev) => {
+      if (typeof ev.data !== "string") return;
+      let event: NlsFrame;
+      try {
+        event = JSON.parse(ev.data) as NlsFrame;
+      } catch {
+        return;
       }
-      queue.length = 0;
-      onEvent?.({ type: "ready" });
-      return;
-    }
-    const result = event.payload?.result?.trim() || "";
-    if (name === "TranscriptionResultChanged" && result) {
-      partialText = result;
-      onEvent?.({ type: "partial", text: result });
-      return;
-    }
-    if (name === "SentenceEnd" && result) {
-      finalText = finalText ? `${finalText}${result}` : result;
-      partialText = "";
-      onEvent?.({ type: "final", text: finalText });
-    }
-  };
+      const name = event.header?.name;
+      const status = event.header?.status;
+      if (
+        name === "TaskFailed" ||
+        (typeof status === "number" && status !== 20000000 && name !== "SentenceEnd")
+      ) {
+        const msg = event.header?.status_text || "听写失败";
+        onEvent?.({ type: "error", message: msg });
+        window.clearTimeout(timer);
+        reject(new Error(msg));
+        return;
+      }
+      if (name === "TranscriptionStarted") {
+        started = true;
+        for (const chunk of queue) {
+          if (ws.readyState === WebSocket.OPEN) ws.send(chunk);
+        }
+        queue.length = 0;
+        window.clearTimeout(timer);
+        onEvent?.({ type: "ready" });
+        resolve();
+        return;
+      }
+      const result = event.payload?.result?.trim() || "";
+      if (name === "TranscriptionResultChanged" && result) {
+        partialText = result;
+        onEvent?.({ type: "partial", text: result });
+        return;
+      }
+      if (name === "SentenceEnd" && result) {
+        finalText = finalText ? `${finalText}${result}` : result;
+        partialText = "";
+        onEvent?.({ type: "final", text: finalText });
+      }
+    };
+  });
 
-  ws.onerror = () => {
-    onEvent?.({ type: "error", message: "听写连接失败" });
-  };
+  try {
+    await ready;
+  } catch (e) {
+    closed = true;
+    processor.onaudioprocess = null;
+    try {
+      processor.disconnect();
+      source.disconnect();
+      mute.disconnect();
+    } catch {
+      /* ignore */
+    }
+    stream.getTracks().forEach((t) => t.stop());
+    try {
+      await audioCtx.close();
+    } catch {
+      /* ignore */
+    }
+    try {
+      ws.close();
+    } catch {
+      /* ignore */
+    }
+    throw e;
+  }
 
   const stop = async (): Promise<string> => {
     if (closed) return finalText || partialText;
@@ -179,11 +293,19 @@ export async function startNlsAsr(
       /* ignore */
     }
     stream.getTracks().forEach((t) => t.stop());
-    void audioCtx.close();
+    try {
+      await audioCtx.close();
+    } catch {
+      /* ignore */
+    }
     if (ws.readyState === WebSocket.OPEN && started) {
-      command("StopTranscription");
+      try {
+        command("StopTranscription");
+      } catch {
+        /* ignore */
+      }
       await new Promise<void>((resolve) => {
-        const t = window.setTimeout(resolve, 800);
+        const t = window.setTimeout(resolve, 600);
         ws.addEventListener(
           "close",
           () => {
@@ -195,6 +317,7 @@ export async function startNlsAsr(
         try {
           ws.close();
         } catch {
+          window.clearTimeout(t);
           resolve();
         }
       });

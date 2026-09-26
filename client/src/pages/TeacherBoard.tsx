@@ -6,6 +6,7 @@ import {
   fetchLeaderboard,
   fetchPosters,
   fetchSessionModes,
+  fetchSorts,
   fetchWishes,
   resetSession,
   startPeerMode,
@@ -20,7 +21,8 @@ import {
 } from "../api";
 import { TechBackdrop } from "../components/TechBackdrop";
 import { layoutBubbles, SIZE_MAX, SIZE_MIN } from "../lib/bubbleLayout";
-import type { LeaderboardEntry, Poster, Wish } from "@kl/shared";
+import type { LeaderboardEntry, Poster, SortSubmission, SortTheme, Wish } from "@kl/shared";
+import { getSortPuzzle, seqToTheme, stripThemePrefix } from "@kl/shared";
 import "./TeacherBoard.css";
 
 const WS_BACKOFF_MS = [1000, 2000, 4000, 8000, 10000];
@@ -30,13 +32,14 @@ const PLACE_LABEL = ["冠军", "亚军", "季军"] as const;
 const PLACE_MEDAL = ["🥇", "🥈", "🥉"] as const;
 
 type Floater = { id: string; groupId: string; x: number; y: number };
-type BoardView = "energy" | "wish" | "poster";
+type BoardView = "energy" | "wish" | "poster" | "sort";
 
 export function TeacherBoard() {
   const { sessionId = "" } = useParams();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [wishes, setWishes] = useState<Wish[]>([]);
   const [posters, setPosters] = useState<Poster[]>([]);
+  const [sorts, setSorts] = useState<SortSubmission[]>([]);
   const [wishActive, setWishActive] = useState(false);
   const [peerActive, setPeerActive] = useState(false);
   const [sortActive, setSortActive] = useState(false);
@@ -106,6 +109,63 @@ export function TeacherBoard() {
     return () => clearTimeout(t);
   }, [wishes]);
 
+  const wishThemeColumns = useMemo(() => {
+    const cols: { key: SortTheme; label: string; wishes: Wish[] }[] = [
+      { key: "yi", label: "衣", wishes: [] },
+      { key: "shi", label: "食", wishes: [] },
+      { key: "zhu", label: "住", wishes: [] },
+    ];
+    const seqByGroup = new Map(entries.map((e) => [e.groupId, e.seq]));
+    const themeOf = (w: Wish): SortTheme => {
+      const seq = seqByGroup.get(w.groupId);
+      if (seq !== undefined) return seqToTheme(seq);
+      const m = w.groupName.match(/^"([衣食住])"/);
+      if (m?.[1] === "食") return "shi";
+      if (m?.[1] === "住") return "zhu";
+      return "yi";
+    };
+    for (const w of wishes) {
+      const col = cols.find((c) => c.key === themeOf(w));
+      col?.wishes.push(w);
+    }
+    return cols;
+  }, [wishes, entries]);
+
+  const sortCards = useMemo(() => {
+    const byId = new Map(sorts.map((s) => [s.groupId, s]));
+    const ordered = [...entries].sort((a, b) => a.seq - b.seq);
+    if (ordered.length === 0) {
+      return sorts
+        .slice()
+        .sort((a, b) => a.seq - b.seq)
+        .map((s) => ({ groupId: s.groupId, groupName: s.groupName, seq: s.seq, submission: s }));
+    }
+    return ordered.map((e) => ({
+      groupId: e.groupId,
+      groupName: e.name,
+      seq: e.seq,
+      submission: byId.get(e.groupId),
+    }));
+  }, [entries, sorts]);
+
+  const posterCards = useMemo(() => {
+    const withImage = posters.filter((p) => p.imageUrl);
+    const byId = new Map(withImage.map((p) => [p.groupId, p]));
+    const ordered = [...entries].sort((a, b) => a.seq - b.seq);
+    if (ordered.length === 0) {
+      return withImage.map((p) => ({
+        groupId: p.groupId,
+        groupName: p.groupName,
+        poster: p as Poster,
+      }));
+    }
+    return ordered.map((e) => ({
+      groupId: e.groupId,
+      groupName: e.name,
+      poster: byId.get(e.groupId),
+    }));
+  }, [entries, posters]);
+
   useEffect(() => {
     let dead = false;
     let ws: WebSocket | undefined;
@@ -135,6 +195,10 @@ export function TeacherBoard() {
           setPosters(msg.posters ?? []);
           setPosterActive(Boolean(msg.posterActive));
         }
+        if (msg.type === "sorts") {
+          setSorts(msg.submissions ?? []);
+          setSortActive(Boolean(msg.sortActive));
+        }
         if (msg.type === "wish_mode") {
           setWishActive(Boolean(msg.active));
           if (msg.active) {
@@ -150,6 +214,7 @@ export function TeacherBoard() {
             setWishActive(false);
             setSortActive(false);
             setPosterActive(false);
+            setView("energy");
           }
         }
         if (msg.type === "sort_mode") {
@@ -158,6 +223,7 @@ export function TeacherBoard() {
             setWishActive(false);
             setPeerActive(false);
             setPosterActive(false);
+            setView("sort");
           }
         }
         if (msg.type === "poster_mode") {
@@ -201,6 +267,7 @@ export function TeacherBoard() {
           setPosterActive(Boolean(modes.posterActive));
           if (modes.posterActive) setView("poster");
           else if (modes.wishActive) setView("wish");
+          else if (modes.sortActive) setView("sort");
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -224,6 +291,18 @@ export function TeacherBoard() {
           if (p.posterActive) {
             setPosterActive(true);
             setView("poster");
+          }
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+      }
+      try {
+        const s = await fetchSorts(sessionId, { signal: ac.signal });
+        if (!dead) {
+          setSorts(s.submissions ?? []);
+          if (s.sortActive) {
+            setSortActive(true);
+            setView("sort");
           }
         }
       } catch (e) {
@@ -307,6 +386,7 @@ export function TeacherBoard() {
     await resetSession(sessionId);
     setWishes([]);
     setPosters([]);
+    setSorts([]);
     setWishActive(false);
     setPeerActive(false);
     setSortActive(false);
@@ -342,19 +422,49 @@ export function TeacherBoard() {
     }
   }
 
-  async function onToggleWish() {
+  async function stopAllModes() {
+    const tasks: Promise<unknown>[] = [];
+    if (wishActive) {
+      tasks.push(
+        stopWishMode(sessionId).then(() => {
+          setWishActive(false);
+        })
+      );
+    }
+    if (peerActive) {
+      tasks.push(
+        stopPeerMode(sessionId).then(() => {
+          setPeerActive(false);
+        })
+      );
+    }
+    if (sortActive) {
+      tasks.push(
+        stopSortMode(sessionId).then(() => {
+          setSortActive(false);
+        })
+      );
+    }
+    if (posterActive) {
+      tasks.push(
+        stopPosterMode(sessionId).then(() => {
+          setPosterActive(false);
+        })
+      );
+    }
+    await Promise.all(tasks);
+  }
+
+  async function onOpenWish() {
     try {
-      if (wishActive) {
-        await stopWishMode(sessionId);
-        setWishActive(false);
-      } else {
+      if (!wishActive) {
         await startWishMode(sessionId);
         setWishActive(true);
         setPeerActive(false);
         setSortActive(false);
         setPosterActive(false);
-        setView("wish");
       }
+      setView("wish");
       setFailMsg("");
     } catch {
       setFailMsg("心愿卡失败");
@@ -362,18 +472,16 @@ export function TeacherBoard() {
     }
   }
 
-  async function onTogglePeer() {
+  async function onOpenPeer() {
     try {
-      if (peerActive) {
-        await stopPeerMode(sessionId);
-        setPeerActive(false);
-      } else {
+      if (!peerActive) {
         await startPeerMode(sessionId);
         setPeerActive(true);
         setWishActive(false);
         setSortActive(false);
         setPosterActive(false);
       }
+      setView("energy");
       setFailMsg("");
     } catch {
       setFailMsg("互评失败");
@@ -381,18 +489,16 @@ export function TeacherBoard() {
     }
   }
 
-  async function onToggleSort() {
+  async function onOpenSort() {
     try {
-      if (sortActive) {
-        await stopSortMode(sessionId);
-        setSortActive(false);
-      } else {
+      if (!sortActive) {
         await startSortMode(sessionId);
         setSortActive(true);
         setWishActive(false);
         setPeerActive(false);
         setPosterActive(false);
       }
+      setView("sort");
       setFailMsg("");
     } catch {
       setFailMsg("排序失败");
@@ -400,22 +506,30 @@ export function TeacherBoard() {
     }
   }
 
-  async function onTogglePoster() {
+  async function onOpenPoster() {
     try {
-      if (posterActive) {
-        await stopPosterMode(sessionId);
-        setPosterActive(false);
-      } else {
+      if (!posterActive) {
         await startPosterMode(sessionId);
         setPosterActive(true);
         setWishActive(false);
         setPeerActive(false);
         setSortActive(false);
-        setView("poster");
       }
+      setView("poster");
       setFailMsg("");
     } catch {
       setFailMsg("手抄报失败");
+      window.setTimeout(() => setFailMsg(""), 2500);
+    }
+  }
+
+  async function onOpenEnergy() {
+    try {
+      await stopAllModes();
+      setView("energy");
+      setFailMsg("");
+    } catch {
+      setFailMsg("切换失败");
       window.setTimeout(() => setFailMsg(""), 2500);
     }
   }
@@ -443,11 +557,21 @@ export function TeacherBoard() {
               ? "科技力量大 · 科技心愿墙"
               : view === "poster"
                 ? "科技力量大 · 手抄报墙"
-                : "科技力量大 · 小组能量榜"
+                : view === "sort"
+                  ? "科技力量大 · 时光排序"
+                  : peerActive
+                    ? "科技力量大 · 小组互评"
+                    : "科技力量大 · 小组能量榜"
           }
         >
-          <span className={view === "energy" ? "is-active" : ""} aria-hidden="true">
+          <span className={view === "energy" && !peerActive ? "is-active" : ""} aria-hidden="true">
             科技力量大 · 小组能量榜
+          </span>
+          <span className={view === "energy" && peerActive ? "is-active" : ""} aria-hidden="true">
+            科技力量大 · 小组互评
+          </span>
+          <span className={view === "sort" ? "is-active" : ""} aria-hidden="true">
+            科技力量大 · 时光排序
           </span>
           <span className={view === "wish" ? "is-active" : ""} aria-hidden="true">
             科技力量大 · 科技心愿墙
@@ -468,26 +592,54 @@ export function TeacherBoard() {
             aria-label="科技心愿墙"
           >
             <div className="wish-wall">
-              {wishes.length === 0 ? (
+              {!wishActive && wishes.length === 0 ? (
                 <div className="empty-panel" role="status">
-                  <p className="empty">{wishActive ? "等待心愿…" : "点「心愿卡」开始"}</p>
+                  <p className="empty">点「心愿卡」开始</p>
                 </div>
               ) : (
-                <ul className="wish-grid">
-                  {wishes.map((w) => (
-                    <li key={w.id}>
-                      <button
-                        type="button"
-                        className={enterIds.has(w.id) ? "wish-tile enter" : "wish-tile"}
-                        onClick={() => setFocusWish(w)}
-                        tabIndex={view === "wish" ? 0 : -1}
-                      >
-                        <span className="wish-tile-group">{w.groupName}</span>
-                        <span className="wish-tile-text">{w.text}</span>
-                      </button>
-                    </li>
+                <div className="wish-theme-cols">
+                  {wishThemeColumns.map((col) => (
+                    <section
+                      key={col.key}
+                      className="wish-theme-col"
+                      aria-label={`${col.label}主题心愿`}
+                    >
+                      <header className="wish-theme-head">
+                        <span className="wish-theme-label">「{col.label}」</span>
+                        <span className="wish-theme-count">{col.wishes.length}</span>
+                      </header>
+                      <div className="wish-theme-scroll">
+                        {col.wishes.length === 0 ? (
+                          <p className="wish-theme-empty">
+                            {wishActive ? "等待许愿…" : "暂无"}
+                          </p>
+                        ) : (
+                          <ul className="wish-chat-list">
+                            {col.wishes.map((w) => (
+                              <li key={w.id}>
+                                <button
+                                  type="button"
+                                  className={
+                                    enterIds.has(w.id)
+                                      ? "wish-bubble enter"
+                                      : "wish-bubble"
+                                  }
+                                  onClick={() => setFocusWish(w)}
+                                  tabIndex={view === "wish" ? 0 : -1}
+                                >
+                                  <span className="wish-bubble-name">
+                                    {stripThemePrefix(w.groupName)}
+                                  </span>
+                                  <span className="wish-bubble-text">{w.text}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </section>
                   ))}
-                </ul>
+                </div>
               )}
             </div>
           </div>
@@ -499,27 +651,99 @@ export function TeacherBoard() {
             aria-label="手抄报墙"
           >
             <div className="poster-wall">
-              {posters.filter((p) => p.imageUrl).length === 0 ? (
+              {posterCards.length === 0 ? (
                 <div className="empty-panel" role="status">
-                  <p className="empty">{posterActive ? "等待生成…" : "点「手抄报」开始"}</p>
+                  <p className="empty">{posterActive ? "等待小组加入…" : "点「手抄报」开始"}</p>
                 </div>
               ) : (
                 <ul className="poster-grid">
-                  {posters
-                    .filter((p) => p.imageUrl)
-                    .map((p) => (
-                      <li key={p.id}>
+                  {posterCards.map((card) => (
+                    <li key={card.groupId}>
+                      {card.poster?.imageUrl ? (
                         <button
                           type="button"
                           className="poster-tile"
-                          onClick={() => setFocusPoster(p)}
+                          onClick={() => setFocusPoster(card.poster!)}
                           tabIndex={view === "poster" ? 0 : -1}
                         >
-                          <img src={p.imageUrl} alt="" />
-                          <span className="poster-tile-group">{p.groupName}</span>
+                          <img src={card.poster.imageUrl} alt="" />
+                          <span className="poster-tile-group">
+                            {stripThemePrefix(card.groupName)}
+                          </span>
                         </button>
+                      ) : (
+                        <div className="poster-tile is-pending" aria-label={`${card.groupName} 待生成`}>
+                          <div className="poster-tile-placeholder">等待生成…</div>
+                          <span className="poster-tile-group">
+                            {stripThemePrefix(card.groupName)}
+                          </span>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          <div
+            className={view === "sort" ? "board-pane is-active" : "board-pane"}
+            aria-hidden={view !== "sort"}
+            role="region"
+            aria-label="时光排序"
+          >
+            <div className="sort-wall">
+              {sortCards.length === 0 ? (
+                <div className="empty-panel" role="status">
+                  <p className="empty">{sortActive ? "等待小组加入…" : "点「时光排序」开始"}</p>
+                </div>
+              ) : (
+                <ul className="sort-result-grid">
+                  {sortCards.map((card) => {
+                    const s = card.submission;
+                    if (!s) {
+                      return (
+                        <li key={card.groupId} className="sort-result-card is-pending">
+                          <div className="sort-result-head">
+                            <span className="sort-result-group">
+                              {stripThemePrefix(card.groupName)}
+                            </span>
+                            <span className="sort-result-theme">待提交</span>
+                          </div>
+                          <p className="sort-result-wait">等待提交…</p>
+                        </li>
+                      );
+                    }
+                    const puzzle = getSortPuzzle(s.theme);
+                    const byId = new Map(puzzle.cards.map((c) => [c.id, c]));
+                    return (
+                      <li
+                        key={card.groupId}
+                        className={s.correct ? "sort-result-card is-ok" : "sort-result-card is-bad"}
+                      >
+                        <div className="sort-result-head">
+                          <span className="sort-result-group">
+                            {stripThemePrefix(s.groupName)}
+                          </span>
+                          <span className="sort-result-theme">{puzzle.themeLabel}</span>
+                        </div>
+                        <ol className="sort-result-strip" aria-label="提交顺序">
+                          {s.order.map((id, i) => {
+                            const item = byId.get(id);
+                            return (
+                              <li key={`${s.groupId}-${id}-${i}`}>
+                                {item ? (
+                                  <img src={item.image} alt={item.label} />
+                                ) : (
+                                  <span className="sort-result-missing">?</span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ol>
                       </li>
-                    ))}
+                    );
+                  })}
                 </ul>
               )}
             </div>
@@ -529,7 +753,7 @@ export function TeacherBoard() {
             className={view === "energy" ? "board-pane is-active" : "board-pane"}
             aria-hidden={view !== "energy"}
             role="region"
-            aria-label="小组能量榜"
+            aria-label={peerActive ? "小组互评" : "小组能量榜"}
           >
             {entries.length === 0 ? (
               <div className="empty-panel" role="status">
@@ -554,6 +778,7 @@ export function TeacherBoard() {
                         top: p.y,
                         width: p.size,
                         height: p.size,
+                        ["--bubble-size" as string]: String(p.size),
                         ["--bubble-glow" as string]: String(glow),
                         ["--float-dur" as string]: floatDur,
                         ["--float-delay" as string]: floatDelay,
@@ -562,7 +787,7 @@ export function TeacherBoard() {
                       aria-label={`${e.name} 能量球`}
                       tabIndex={view === "energy" ? 0 : -1}
                     >
-                      <span className="bubble-name">{e.name}</span>
+                      <span className="bubble-name">{stripThemePrefix(e.name)}</span>
                       <span className="bubble-score">{e.score}</span>
                     </button>
                   );
@@ -587,8 +812,45 @@ export function TeacherBoard() {
           aria-label="课堂操作"
           onContextMenu={(e) => e.preventDefault()}
         >
-          <button type="button" className="award-btn" onClick={openAward} disabled={entries.length === 0}>
-            颁发科技小达人
+          <button
+            type="button"
+            className={view === "energy" && !peerActive && !sortActive ? "view-toggle-btn is-on" : "view-toggle-btn"}
+            aria-pressed={view === "energy" && !peerActive && !sortActive}
+            onClick={() => void onOpenEnergy()}
+          >
+            能量榜
+          </button>
+          <button
+            type="button"
+            className={sortActive ? "sort-toggle-btn is-on" : "sort-toggle-btn"}
+            aria-pressed={sortActive}
+            onClick={() => void onOpenSort()}
+          >
+            时光排序
+          </button>
+          <button
+            type="button"
+            className={posterActive ? "poster-toggle-btn is-on" : "poster-toggle-btn"}
+            aria-pressed={posterActive}
+            onClick={() => void onOpenPoster()}
+          >
+            手抄报
+          </button>
+          <button
+            type="button"
+            className={wishActive ? "wish-toggle-btn is-on" : "wish-toggle-btn"}
+            aria-pressed={wishActive}
+            onClick={() => void onOpenWish()}
+          >
+            心愿卡
+          </button>
+          <button
+            type="button"
+            className={peerActive ? "peer-toggle-btn is-on" : "peer-toggle-btn"}
+            aria-pressed={peerActive}
+            onClick={() => void onOpenPeer()}
+          >
+            小组互评
           </button>
           <button
             type="button"
@@ -609,59 +871,12 @@ export function TeacherBoard() {
               />
             )}
           </button>
-          <button
-            type="button"
-            className={sortActive ? "sort-toggle-btn is-on" : "sort-toggle-btn"}
-            aria-pressed={sortActive}
-            onClick={() => void onToggleSort()}
-          >
-            时光排序
-          </button>
-          <button
-            type="button"
-            className={posterActive ? "poster-toggle-btn is-on" : "poster-toggle-btn"}
-            aria-pressed={posterActive}
-            onClick={() => void onTogglePoster()}
-          >
-            手抄报
-          </button>
-          <button
-            type="button"
-            className={wishActive ? "wish-toggle-btn is-on" : "wish-toggle-btn"}
-            aria-pressed={wishActive}
-            onClick={() => void onToggleWish()}
-          >
-            心愿卡
-          </button>
-          <button
-            type="button"
-            className={peerActive ? "peer-toggle-btn is-on" : "peer-toggle-btn"}
-            aria-pressed={peerActive}
-            onClick={() => void onTogglePeer()}
-          >
-            小组互评
-          </button>
-          <button
-            type="button"
-            className={
-              view === "wish" || view === "poster" ? "view-toggle-btn is-on" : "view-toggle-btn"
-            }
-            aria-pressed={view !== "energy"}
-            onClick={() => {
-              if (view === "energy") setView(posterActive ? "poster" : "wish");
-              else if (view === "wish") setView("poster");
-              else setView("energy");
-            }}
-          >
-            {view === "energy" ? "成果墙" : view === "wish" ? "手抄报墙" : "能量榜"}
+          <button type="button" className="award-btn" onClick={openAward} disabled={entries.length === 0}>
+            颁发科技小达人
           </button>
           <div className="board-actions-status" aria-live="polite">
             {clearedMsg && <p className="cleared-toast">{clearedMsg}</p>}
             {failMsg && <p className="award-fail-toast">{failMsg}</p>}
-            {sortActive && <p className="sort-live-hint">排序中</p>}
-            {posterActive && <p className="poster-live-hint">手抄报中</p>}
-            {wishActive && <p className="wish-live-hint">心愿中</p>}
-            {peerActive && <p className="peer-live-hint">互评中</p>}
           </div>
         </aside>
       </div>
@@ -686,19 +901,26 @@ export function TeacherBoard() {
 
       {focusPoster && (
         <div
-          className="wish-focus-overlay poster-focus-overlay"
+          className="poster-focus-overlay"
           role="dialog"
           aria-modal="true"
           aria-label="手抄报放大展示"
           onClick={() => setFocusPoster(null)}
         >
-          <div className="poster-focus-card" onClick={(e) => e.stopPropagation()}>
-            <p className="wish-focus-group">{focusPoster.groupName}</p>
-            <img src={focusPoster.imageUrl} alt={`${focusPoster.groupName}手抄报`} />
-            <button type="button" className="award-close" onClick={() => setFocusPoster(null)}>
-              关闭
-            </button>
-          </div>
+          <button
+            type="button"
+            className="poster-focus-close"
+            aria-label="关闭"
+            onClick={() => setFocusPoster(null)}
+          >
+            ×
+          </button>
+          <img
+            className="poster-focus-img"
+            src={focusPoster.imageUrl}
+            alt={`${focusPoster.groupName}手抄报`}
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 
