@@ -85,7 +85,6 @@
   margin-top: 0.25rem;
 }
 
-.poster-save,
 .poster-gen {
   flex: 1;
   min-width: 7rem;
@@ -95,20 +94,10 @@
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-}
-
-.poster-save {
-  background: rgba(255, 255, 255, 0.1);
-  color: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.poster-gen {
   background: linear-gradient(135deg, #2ad4ff, #4f8cff);
   color: #041018;
 }
 
-.poster-save:disabled,
 .poster-gen:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -126,6 +115,10 @@
   opacity: 0.85;
 }
 
+.poster-editor--result {
+  gap: 0.75rem;
+}
+
 .poster-preview {
   margin: 0.5rem 0 0;
   border-radius: 0.65rem;
@@ -134,8 +127,16 @@
   background: #000;
 }
 
+.poster-preview--hero {
+  margin: 0;
+}
+
 .poster-preview img {
   display: block;
   width: 100%;
   height: auto;
+  max-height: min(70vh, 920px);
+  object-fit: contain;
+  margin: 0 auto;
+  background: #0a1020;
 }

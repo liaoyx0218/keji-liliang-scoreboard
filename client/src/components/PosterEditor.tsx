@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PosterFields } from "@kl/shared";
 import {
   ApiError,
   fetchPosterTemplate,
   generatePoster,
   isNeedRejoinError,
-  savePosterDraft,
 } from "../api";
 import "./PosterEditor.css";
 
@@ -29,6 +28,8 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
     summary: "",
   });
   const [imageUrl, setImageUrl] = useState("");
+  const [showResult, setShowResult] = useState(false);
+  const previewRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let dead = false;
@@ -40,6 +41,7 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
         if (dead) return;
         setFields(t.fields);
         setImageUrl(t.imageUrl ?? "");
+        setShowResult(Boolean(t.imageUrl));
         setRoleLabel(t.roleLabel);
         setThemeLabel(t.themeLabel);
       } catch (e) {
@@ -57,35 +59,30 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
     };
   }, [sessionId, groupId, onNeedRejoin]);
 
+  useEffect(() => {
+    if (!showResult || !imageUrl) return;
+    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [showResult, imageUrl]);
+
   function patch(key: keyof PosterFields, value: string) {
     setFields((f) => ({ ...f, [key]: value }));
-  }
-
-  async function onSave() {
-    setBusy(true);
-    setHint("");
-    try {
-      await savePosterDraft(sessionId, groupId, fields);
-      setHint("草稿已保存");
-    } catch (e) {
-      if (isNeedRejoinError(e)) {
-        onNeedRejoin?.();
-        return;
-      }
-      setHint("保存失败，再试一次");
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function onGenerate() {
     setBusy(true);
     setHint("正在生成手抄报，大约需要十几秒…");
+    setShowResult(false);
     try {
       const r = await generatePoster(sessionId, groupId, fields);
       const poster = (r as { poster?: { imageUrl?: string } }).poster;
-      if (poster?.imageUrl) setImageUrl(poster.imageUrl);
-      setHint("生成成功！可以投屏展示了");
+      const url = poster?.imageUrl ?? "";
+      if (!url) {
+        setHint("生成成功但没有返回图片，请再试一次");
+        return;
+      }
+      setImageUrl(url);
+      setShowResult(true);
+      setHint("生成成功！下面就是本组手抄报");
     } catch (e) {
       if (isNeedRejoinError(e)) {
         onNeedRejoin?.();
@@ -118,6 +115,42 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
     return (
       <div className="poster-editor" role="status">
         <p className="poster-loading">正在加载本组手抄报模板…</p>
+      </div>
+    );
+  }
+
+  if (showResult && imageUrl) {
+    return (
+      <div className="poster-editor poster-editor--result" ref={previewRef}>
+        <div className="poster-head">
+          <h2>
+            <span className="poster-theme">{themeLabel}</span>
+            手抄报 · {roleLabel}
+          </h2>
+          <p className="poster-group">{groupName}</p>
+          <p className="poster-hint-line">生成成功，可投屏展示</p>
+        </div>
+        {hint && (
+          <p className="poster-status" role="status">
+            {hint}
+          </p>
+        )}
+        <figure className="poster-preview poster-preview--hero">
+          <img src={imageUrl} alt={`${groupName}手抄报`} />
+        </figure>
+        <div className="poster-actions">
+          <button
+            type="button"
+            className="poster-gen"
+            disabled={busy}
+            onClick={() => {
+              setShowResult(false);
+              setHint("改好文字后再生成");
+            }}
+          >
+            修改文案重新生成
+          </button>
+        </div>
       </div>
     );
   }
@@ -172,9 +205,6 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
       </label>
 
       <div className="poster-actions">
-        <button type="button" className="poster-save" disabled={busy} onClick={() => void onSave()}>
-          保存草稿
-        </button>
         <button
           type="button"
           className="poster-gen"
@@ -190,12 +220,6 @@ export function PosterEditor({ sessionId, groupId, groupName, onNeedRejoin }: Pr
           {hint}
         </p>
       )}
-
-      {imageUrl ? (
-        <figure className="poster-preview">
-          <img src={imageUrl} alt={`${groupName}手抄报`} />
-        </figure>
-      ) : null}
     </div>
   );
 }

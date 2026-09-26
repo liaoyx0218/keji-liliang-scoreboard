@@ -149,20 +149,6 @@ export async function fetchPosterTemplate(sessionId: string, groupId: string) {
   }>;
 }
 
-export async function savePosterDraft(
-  sessionId: string,
-  groupId: string,
-  fields: { title: string; subtitle: string; body: string; summary: string }
-) {
-  return json(
-    await fetch(`/api/sessions/${sessionId}/groups/${groupId}/poster`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields }),
-    })
-  );
-}
-
 export async function generatePoster(
   sessionId: string,
   groupId: string,
