@@ -38,12 +38,21 @@ export async function joinSession(sessionId: string) {
   return json(await fetch(`/api/sessions/${sessionId}/join`, { method: "POST" }));
 }
 
-export async function addScore(sessionId: string, groupId: string) {
+export type ScoreSource = "self" | "peer" | "teacher";
+
+export async function addScore(
+  sessionId: string,
+  groupId: string,
+  opts?: { source?: ScoreSource; fromGroupId?: string }
+) {
+  const body: { source?: ScoreSource; fromGroupId?: string } = {};
+  if (opts?.source) body.source = opts.source;
+  if (opts?.fromGroupId) body.fromGroupId = opts.fromGroupId;
   return json(
     await fetch(`/api/sessions/${sessionId}/groups/${groupId}/score`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(Object.keys(body).length ? body : {}),
     })
   );
 }
