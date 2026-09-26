@@ -7,6 +7,8 @@ import { SessionStore } from "../store/SessionStore.js";
 import { createApp } from "./createApp.js";
 
 describe("HTTP API", () => {
+  const teacherHdr = (key: string) => ({ "X-Teacher-Key": key });
+  const keyOf = (sessionId: string) => store.getSession(sessionId)!.teacherKey;
   let store: SessionStore;
   let onLeaderboard: ReturnType<typeof vi.fn>;
   beforeEach(() => {
@@ -19,7 +21,8 @@ describe("HTTP API", () => {
     const res = await request(app).post("/api/sessions").expect(201);
     expect(res.body.sessionId).toBeTruthy();
     expect(res.body.studentPath).toMatch(/^\/s\//);
-    expect(res.body.teacherPath).toMatch(/^\/t\//);
+    expect(res.body.teacherPath).toMatch(/^\/host\//);
+    expect(res.body.teacherPath.split("/")).toHaveLength(4);
     expect(onLeaderboard).not.toHaveBeenCalled();
   });
 
@@ -58,9 +61,9 @@ describe("HTTP API", () => {
     const board = await request(app).get(`/api/sessions/${id}/leaderboard`).expect(200);
     expect(board.body.entries[0].score).toBe(2);
     expect(onLeaderboard).toHaveBeenCalledTimes(2);
-    await request(app).post(`/api/sessions/${id}/reset`).expect(200);
-    // reset: leaderboard + wish_mode + peer_mode + sort_mode + poster_mode + wishes + posters
-    expect(onLeaderboard).toHaveBeenCalledTimes(9);
+    await request(app).post(`/api/sessions/${id}/reset`).set(teacherHdr(keyOf(id))).expect(200);
+    // reset: leaderboard + wish/peer/sort/poster modes + wishes + posters + sorts
+    expect(onLeaderboard).toHaveBeenCalledTimes(10);
     const empty = await request(app).get(`/api/sessions/${id}/leaderboard`);
     expect(empty.body.entries).toEqual([]);
   });
@@ -78,7 +81,7 @@ describe("HTTP API", () => {
     const app = createApp(store);
     await request(app).post("/api/sessions/missing/join").expect(404);
     await request(app).get("/api/sessions/missing/leaderboard").expect(404);
-    await request(app).post("/api/sessions/missing/reset").expect(404);
+    await request(app).post("/api/sessions/missing/reset").expect(403);
   });
 
   it("clear-scores zeros scores and keeps groups", async () => {
@@ -89,7 +92,7 @@ describe("HTTP API", () => {
     const resetAtBefore = before.body.resetAt as string;
     const j1 = await request(app).post(`/api/sessions/${id}/join`);
     await request(app).post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`).send({});
-    const cleared = await request(app).post(`/api/sessions/${id}/clear-scores`).expect(200);
+    const cleared = await request(app).post(`/api/sessions/${id}/clear-scores`).set(teacherHdr(keyOf(id))).expect(200);
     expect(cleared.body.resetAt).toBe(resetAtBefore);
     expect(cleared.body.entries).toHaveLength(1);
     expect(cleared.body.entries[0].score).toBe(0);
@@ -98,7 +101,7 @@ describe("HTTP API", () => {
 
   it("clear-scores on missing session → 404", async () => {
     const app = createApp(store);
-    await request(app).post("/api/sessions/missing/clear-scores").expect(404);
+    await request(app).post("/api/sessions/missing/clear-scores").expect(403);
   });
 
   it("rejects score delta other than 2", async () => {
@@ -122,7 +125,7 @@ describe("HTTP API", () => {
     await request(app)
       .post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`)
       .send({});
-    await request(app).post(`/api/sessions/${id}/reset`);
+    await request(app).post(`/api/sessions/${id}/reset`).set(teacherHdr(keyOf(id)));
     expect(onChange).toHaveBeenCalledTimes(4);
   });
 
@@ -132,7 +135,7 @@ describe("HTTP API", () => {
     const id = created.sessionId as string;
     const j1 = await request(app).post(`/api/sessions/${id}/join`);
     const j2 = await request(app).post(`/api/sessions/${id}/join`);
-    await request(app).post(`/api/sessions/${id}/peer/start`).expect(200);
+    await request(app).post(`/api/sessions/${id}/peer/start`).set(teacherHdr(keyOf(id))).expect(200);
     await request(app)
       .post(`/api/sessions/${id}/groups/${j2.body.groupId}/score`)
       .send({ source: "peer", fromGroupId: j1.body.groupId })
@@ -165,7 +168,7 @@ describe("HTTP API", () => {
     const { body: created } = await request(app).post("/api/sessions");
     const id = created.sessionId as string;
     const j1 = await request(app).post(`/api/sessions/${id}/join`);
-    await request(app).post(`/api/sessions/${id}/peer/start`);
+    await request(app).post(`/api/sessions/${id}/peer/start`).set(teacherHdr(keyOf(id)));
     await request(app)
       .post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`)
       .send({ source: "peer", fromGroupId: j1.body.groupId })
@@ -179,7 +182,7 @@ describe("HTTP API", () => {
     const id = created.sessionId as string;
     const j1 = await request(app).post(`/api/sessions/${id}/join`);
     const j2 = await request(app).post(`/api/sessions/${id}/join`);
-    await request(app).post(`/api/sessions/${id}/peer/start`);
+    await request(app).post(`/api/sessions/${id}/peer/start`).set(teacherHdr(keyOf(id)));
     await request(app)
       .post(`/api/sessions/${id}/groups/${j2.body.groupId}/score`)
       .send({ source: "peer" })
@@ -192,12 +195,27 @@ describe("HTTP API", () => {
     const { body: created } = await request(app).post("/api/sessions");
     const id = created.sessionId as string;
     const j2 = await request(app).post(`/api/sessions/${id}/join`);
-    await request(app).post(`/api/sessions/${id}/peer/start`);
+    await request(app).post(`/api/sessions/${id}/peer/start`).set(teacherHdr(keyOf(id)));
     await request(app)
       .post(`/api/sessions/${id}/groups/${j2.body.groupId}/score`)
       .send({ source: "peer", fromGroupId: "nope" })
       .expect(404)
       .expect(({ body }) => expect(body.error).toBe("GROUP_NOT_FOUND"));
+  });
+
+  it("teacher ops reject bad key", async () => {
+    const app = createApp(store);
+    const { body } = await request(app).post("/api/sessions");
+    const id = body.sessionId as string;
+    await request(app).post(`/api/sessions/${id}/wish/start`).expect(403);
+    await request(app)
+      .post(`/api/sessions/${id}/wish/start`)
+      .set(teacherHdr("wrong-key-wrong-key-wrong"))
+      .expect(403);
+    await request(app)
+      .get(`/api/sessions/${id}/teacher/verify`)
+      .set(teacherHdr(keyOf(id)))
+      .expect(200);
   });
 
   it("teacher source +2 works like self", async () => {
@@ -207,7 +225,7 @@ describe("HTTP API", () => {
     const j1 = await request(app).post(`/api/sessions/${id}/join`);
     await request(app)
       .post(`/api/sessions/${id}/groups/${j1.body.groupId}/score`)
-      .send({ source: "teacher" })
+      .set(teacherHdr(keyOf(id))).send({ source: "teacher" })
       .expect(200)
       .expect(({ body }) => expect(body.score).toBe(2));
   });
@@ -235,7 +253,7 @@ describe("HTTP API", () => {
       .send({ groupId: j1.body.groupId, text: "早了" })
       .expect(400)
       .expect(({ body }) => expect(body.error).toBe("WISH_INACTIVE"));
-    await request(app).post(`/api/sessions/${id}/wish/start`).expect(200);
+    await request(app).post(`/api/sessions/${id}/wish/start`).set(teacherHdr(keyOf(id))).expect(200);
     expect(onLeaderboard).toHaveBeenCalledWith(
       expect.objectContaining({ type: "wish_mode", active: true })
     );
@@ -251,7 +269,7 @@ describe("HTTP API", () => {
     expect(list.body.wishActive).toBe(true);
     expect(list.body.wishes).toHaveLength(2);
     expect(list.body.wishes[0].groupName).toBe('"衣"时光溯源队');
-    await request(app).post(`/api/sessions/${id}/wish/stop`).expect(200);
+    await request(app).post(`/api/sessions/${id}/wish/stop`).set(teacherHdr(keyOf(id))).expect(200);
     await request(app)
       .post(`/api/sessions/${id}/wishes`)
       .send({ groupId: j1.body.groupId, text: "又一条" })
@@ -287,14 +305,14 @@ describe("HTTP API", () => {
       sortActive: false,
       posterActive: false,
     });
-    await request(app).post(`/api/sessions/${id}/peer/start`).expect(200);
+    await request(app).post(`/api/sessions/${id}/peer/start`).set(teacherHdr(keyOf(id))).expect(200);
     expect(onLeaderboard).toHaveBeenCalledWith(
       expect.objectContaining({ type: "peer_mode", active: true })
     );
     const modes1 = await request(app).get(`/api/sessions/${id}/modes`).expect(200);
     expect(modes1.body.peerActive).toBe(true);
     expect(modes1.body.sortActive).toBe(false);
-    await request(app).post(`/api/sessions/${id}/wish/start`).expect(200);
+    await request(app).post(`/api/sessions/${id}/wish/start`).set(teacherHdr(keyOf(id))).expect(200);
     const modes2 = await request(app).get(`/api/sessions/${id}/modes`).expect(200);
     expect(modes2.body).toEqual({
       wishActive: true,
@@ -302,7 +320,7 @@ describe("HTTP API", () => {
       sortActive: false,
       posterActive: false,
     });
-    await request(app).post(`/api/sessions/${id}/sort/start`).expect(200);
+    await request(app).post(`/api/sessions/${id}/sort/start`).set(teacherHdr(keyOf(id))).expect(200);
     const modes3 = await request(app).get(`/api/sessions/${id}/modes`).expect(200);
     expect(modes3.body).toEqual({
       wishActive: false,
@@ -310,7 +328,7 @@ describe("HTTP API", () => {
       sortActive: true,
       posterActive: false,
     });
-    await request(app).post(`/api/sessions/${id}/poster/start`).expect(200);
+    await request(app).post(`/api/sessions/${id}/poster/start`).set(teacherHdr(keyOf(id))).expect(200);
     const modes4 = await request(app).get(`/api/sessions/${id}/modes`).expect(200);
     expect(modes4.body).toEqual({
       wishActive: false,
@@ -318,7 +336,7 @@ describe("HTTP API", () => {
       sortActive: false,
       posterActive: true,
     });
-    await request(app).post(`/api/sessions/${id}/peer/stop`).expect(200);
+    await request(app).post(`/api/sessions/${id}/peer/stop`).set(teacherHdr(keyOf(id))).expect(200);
   });
 
   it("poster template + generate with mock ark", async () => {
@@ -340,7 +358,7 @@ describe("HTTP API", () => {
     const { body: created } = await request(app).post("/api/sessions");
     const id = created.sessionId as string;
     const j = await request(app).post(`/api/sessions/${id}/join`).expect(201);
-    await request(app).post(`/api/sessions/${id}/poster/start`).expect(200);
+    await request(app).post(`/api/sessions/${id}/poster/start`).set(teacherHdr(keyOf(id))).expect(200);
     const tpl = await request(app)
       .get(`/api/sessions/${id}/poster/template`)
       .query({ groupId: j.body.groupId })

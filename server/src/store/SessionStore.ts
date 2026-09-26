@@ -19,9 +19,11 @@ import {
 type IdFn = () => string;
 type NowFn = () => string;
 
-function normalizeSession(s: Session): Session {
+function normalizeSession(s: Session, newTeacherKey: IdFn): Session {
+  const key = typeof s.teacherKey === "string" ? s.teacherKey.trim() : "";
   return {
     ...s,
+    teacherKey: key.length >= 16 ? key : newTeacherKey(),
     wishActive: Boolean(s.wishActive),
     peerActive: Boolean(s.peerActive),
     sortActive: Boolean(s.sortActive),
@@ -43,7 +45,8 @@ export class SessionStore {
     private readonly newGroupId: IdFn = () => nanoid(12),
     private readonly now: NowFn = () => new Date().toISOString(),
     private readonly newWishId: IdFn = () => nanoid(12),
-    private readonly newPosterId: IdFn = () => nanoid(12)
+    private readonly newPosterId: IdFn = () => nanoid(12),
+    private readonly newTeacherKey: IdFn = () => nanoid(32)
   ) {}
 
   createSession(): Session {
@@ -55,6 +58,7 @@ export class SessionStore {
     const ts = this.now();
     const session: Session = {
       id: this.newSessionId(),
+      teacherKey: this.newTeacherKey(),
       status: "active",
       createdAt: ts,
       resetAt: ts,
@@ -70,6 +74,18 @@ export class SessionStore {
     this.posters.set(session.id, new Map());
     this.sorts.set(session.id, new Map());
     return session;
+  }
+
+  /** 校验教师大屏密钥（常量时间比较） */
+  verifyTeacherKey(sessionId: string, teacherKey: string | undefined): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session?.teacherKey || !teacherKey) return false;
+    const a = session.teacherKey;
+    const b = teacherKey;
+    if (a.length !== b.length) return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return diff === 0;
   }
 
   listSessionIds(): string[] {
@@ -370,7 +386,7 @@ export class SessionStore {
     this.wishes.clear();
     this.posters.clear();
     this.sorts.clear();
-    for (const s of sessions) this.sessions.set(s.id, normalizeSession(s));
+    for (const s of sessions) this.sessions.set(s.id, normalizeSession(s, this.newTeacherKey));
     for (const [id, gs] of Object.entries(groupsBySession)) this.groups.set(id, gs);
     for (const [id, ws] of Object.entries(wishesBySession)) this.wishes.set(id, ws);
     for (const [id, list] of Object.entries(postersBySession)) {

@@ -18,6 +18,7 @@ describe("SessionStore", () => {
     expect(s.status).toBe("active");
     expect(s.nextGroupSeq).toBe(1);
     expect(s.resetAt).toBe(s.createdAt);
+    expect(s.teacherKey.length).toBeGreaterThanOrEqual(16);
     expect(s.wishActive).toBe(false);
     expect(s.peerActive).toBe(false);
     expect(s.posterActive).toBe(false);

@@ -17,6 +17,7 @@ import {
   stopPosterMode,
   stopSortMode,
   stopWishMode,
+  verifyTeacherKey,
   wsUrl,
 } from "../api";
 import { TechBackdrop } from "../components/TechBackdrop";
@@ -35,7 +36,8 @@ type Floater = { id: string; groupId: string; x: number; y: number };
 type BoardView = "energy" | "wish" | "poster" | "sort";
 
 export function TeacherBoard() {
-  const { sessionId = "" } = useParams();
+  const { sessionId = "", teacherKey = "" } = useParams();
+  const [auth, setAuth] = useState<"loading" | "ok" | "bad">("loading");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [wishes, setWishes] = useState<Wish[]>([]);
   const [posters, setPosters] = useState<Poster[]>([]);
@@ -252,6 +254,18 @@ export function TeacherBoard() {
     };
 
     void (async () => {
+      if (!sessionId || !teacherKey) {
+        if (!dead) setAuth("bad");
+        return;
+      }
+      try {
+        await verifyTeacherKey(sessionId, teacherKey);
+        if (dead) return;
+        setAuth("ok");
+      } catch {
+        if (!dead) setAuth("bad");
+        return;
+      }
       try {
         const snap = await fetchLeaderboard(sessionId, { signal: ac.signal });
         if (!dead) setEntries(snap.entries);
@@ -318,7 +332,7 @@ export function TeacherBoard() {
       if (reconnectTimer !== undefined) clearTimeout(reconnectTimer);
       ws?.close();
     };
-  }, [sessionId]);
+  }, [sessionId, teacherKey]);
 
   useEffect(() => {
     if (!showAward) {
@@ -352,7 +366,7 @@ export function TeacherBoard() {
   async function finishClearScores() {
     cancelLongPress();
     try {
-      const snap = await clearScores(sessionId);
+      const snap = await clearScores(sessionId, teacherKey);
       setEntries(snap.entries);
       setClearedMsg("已清零");
       window.setTimeout(() => setClearedMsg(""), 3000);
@@ -383,7 +397,7 @@ export function TeacherBoard() {
     if (clicks.current.n < 3) return;
     clicks.current.n = 0;
     if (!confirm("清空本场？")) return;
-    await resetSession(sessionId);
+    await resetSession(sessionId, teacherKey);
     setWishes([]);
     setPosters([]);
     setSorts([]);
@@ -406,7 +420,7 @@ export function TeacherBoard() {
 
   async function onBubbleClick(groupId: string, size: number, left: number, top: number) {
     try {
-      await addScore(sessionId, groupId, { source: "teacher" });
+      await addScore(sessionId, groupId, { source: "teacher", teacherKey });
       setFailMsg("");
       const fid = `${groupId}-${Date.now()}`;
       setFloaters((f) => [
@@ -426,28 +440,28 @@ export function TeacherBoard() {
     const tasks: Promise<unknown>[] = [];
     if (wishActive) {
       tasks.push(
-        stopWishMode(sessionId).then(() => {
+        stopWishMode(sessionId, teacherKey).then(() => {
           setWishActive(false);
         })
       );
     }
     if (peerActive) {
       tasks.push(
-        stopPeerMode(sessionId).then(() => {
+        stopPeerMode(sessionId, teacherKey).then(() => {
           setPeerActive(false);
         })
       );
     }
     if (sortActive) {
       tasks.push(
-        stopSortMode(sessionId).then(() => {
+        stopSortMode(sessionId, teacherKey).then(() => {
           setSortActive(false);
         })
       );
     }
     if (posterActive) {
       tasks.push(
-        stopPosterMode(sessionId).then(() => {
+        stopPosterMode(sessionId, teacherKey).then(() => {
           setPosterActive(false);
         })
       );
@@ -458,7 +472,7 @@ export function TeacherBoard() {
   async function onOpenWish() {
     try {
       if (!wishActive) {
-        await startWishMode(sessionId);
+        await startWishMode(sessionId, teacherKey);
         setWishActive(true);
         setPeerActive(false);
         setSortActive(false);
@@ -475,7 +489,7 @@ export function TeacherBoard() {
   async function onOpenPeer() {
     try {
       if (!peerActive) {
-        await startPeerMode(sessionId);
+        await startPeerMode(sessionId, teacherKey);
         setPeerActive(true);
         setWishActive(false);
         setSortActive(false);
@@ -492,7 +506,7 @@ export function TeacherBoard() {
   async function onOpenSort() {
     try {
       if (!sortActive) {
-        await startSortMode(sessionId);
+        await startSortMode(sessionId, teacherKey);
         setSortActive(true);
         setWishActive(false);
         setPeerActive(false);
@@ -509,7 +523,7 @@ export function TeacherBoard() {
   async function onOpenPoster() {
     try {
       if (!posterActive) {
-        await startPosterMode(sessionId);
+        await startPosterMode(sessionId, teacherKey);
         setPosterActive(true);
         setWishActive(false);
         setPeerActive(false);
@@ -543,6 +557,32 @@ export function TeacherBoard() {
       out.push({ entry: topThree[placeIndex], placeIndex });
     }
     return out.slice().reverse();
+  }
+
+  if (auth === "loading") {
+    return (
+      <main className="page teacher-board">
+        <TechBackdrop />
+        <div className="status-block" role="status">
+          <span className="status-kicker">HOST</span>
+          <p className="loading-dots">校验中…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (auth === "bad") {
+    return (
+      <main className="page teacher-board">
+        <TechBackdrop />
+        <div className="status-block">
+          <span className="status-kicker">HOST</span>
+          <p className="error" role="alert">
+            链接无效
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (

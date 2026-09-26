@@ -46,9 +46,15 @@ npm run dev -w client
 npm run dev -w client -- --host
 ```
 
-用本机局域网 IP 打开创建页，将**学生端二维码/链接**放进课件；大屏用「打开大屏」或 `/t/:sessionId`。
+用本机局域网 IP 打开**开课台**（路径见下，勿写进学生课件），将**学生端二维码/链接**放进课件；大屏用「打开大屏」或创建后给出的 `/host/:sessionId/:teacherKey`（含密钥，勿泄露）。
 
 生产：先 `npm run build`，再 `npm run start -w server`（或 `tsx` 启动），同一端口同时提供 API 与打包后的前端。
+
+### 开课台与教师大屏地址
+
+- **开课台**（创建本场）：`/desk/kl-open-8f2c` —— 仅教师收藏，首页 `/` 不会进入开课。
+- **教师大屏**：`/host/<sessionId>/<teacherKey>` —— 密钥不在学生链接里；把学生的 `/s/...` 改成 `/t/...` 进不了大屏。
+- **学生端**：`/s/<sessionId>`
 
 ### HTTPS（心愿语音必读）
 

@@ -109,6 +109,18 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
     }
   };
 
+  const requireTeacher = (req: express.Request, res: express.Response): boolean => {
+    const sessionId = req.params.sessionId;
+    const keyHeader = req.header("x-teacher-key") ?? "";
+    const keyBody = typeof req.body?.teacherKey === "string" ? req.body.teacherKey : "";
+    const key = keyHeader || keyBody;
+    if (!store.verifyTeacherKey(sessionId, key)) {
+      res.status(403).json({ error: "TEACHER_FORBIDDEN" });
+      return false;
+    }
+    return true;
+  };
+
   app.post("/api/sessions", (_req, res) => {
     const previousIds = store.listSessionIds();
     const s = store.createSession();
@@ -140,8 +152,13 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
     res.status(201).json({
       sessionId: s.id,
       studentPath: `/s/${s.id}`,
-      teacherPath: `/t/${s.id}`,
+      teacherPath: `/host/${s.id}/${s.teacherKey}`,
     });
+  });
+
+  app.get("/api/sessions/:sessionId/teacher/verify", (req, res) => {
+    if (!requireTeacher(req, res)) return;
+    res.json({ ok: true });
   });
 
   app.post("/api/sessions/:sessionId/join", (req, res) => {
@@ -199,6 +216,8 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
       if (!fromExists) return res.status(404).json({ error: "GROUP_NOT_FOUND" });
     }
 
+    if (source === "teacher" && !requireTeacher(req, res)) return;
+
     const result = store.addScore(sessionId, groupId, 2);
     if ("error" in result) {
       return res.status(404).json({ error: result.error });
@@ -215,6 +234,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   });
 
   app.post("/api/sessions/:sessionId/reset", (req, res) => {
+    if (!requireTeacher(req, res)) return;
     const result = store.reset(req.params.sessionId);
     if ("error" in result) return res.status(404).json({ error: result.error });
     for (const key of [...rate.keys()]) {
@@ -233,6 +253,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   });
 
   app.post("/api/sessions/:sessionId/clear-scores", (req, res) => {
+    if (!requireTeacher(req, res)) return;
     const result = store.clearScores(req.params.sessionId);
     if ("error" in result) return res.status(404).json({ error: result.error });
     notifyChange();
@@ -243,6 +264,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   });
 
   app.post("/api/sessions/:sessionId/wish/start", (req, res) => {
+    if (!requireTeacher(req, res)) return;
     const result = store.setWishActive(req.params.sessionId, true);
     if ("error" in result) return res.status(404).json({ error: result.error });
     notifyChange();
@@ -253,6 +275,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   });
 
   app.post("/api/sessions/:sessionId/wish/stop", (req, res) => {
+    if (!requireTeacher(req, res)) return;
     const result = store.setWishActive(req.params.sessionId, false);
     if ("error" in result) return res.status(404).json({ error: result.error });
     notifyChange();
@@ -262,6 +285,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   });
 
   app.post("/api/sessions/:sessionId/peer/start", (req, res) => {
+    if (!requireTeacher(req, res)) return;
     const result = store.setPeerActive(req.params.sessionId, true);
     if ("error" in result) return res.status(404).json({ error: result.error });
     notifyChange();
@@ -271,6 +295,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   });
 
   app.post("/api/sessions/:sessionId/peer/stop", (req, res) => {
+    if (!requireTeacher(req, res)) return;
     const result = store.setPeerActive(req.params.sessionId, false);
     if ("error" in result) return res.status(404).json({ error: result.error });
     notifyChange();
@@ -279,6 +304,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   });
 
   app.post("/api/sessions/:sessionId/sort/start", (req, res) => {
+    if (!requireTeacher(req, res)) return;
     const result = store.setSortActive(req.params.sessionId, true);
     if ("error" in result) return res.status(404).json({ error: result.error });
     notifyChange();
@@ -289,6 +315,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   });
 
   app.post("/api/sessions/:sessionId/sort/stop", (req, res) => {
+    if (!requireTeacher(req, res)) return;
     const result = store.setSortActive(req.params.sessionId, false);
     if ("error" in result) return res.status(404).json({ error: result.error });
     notifyChange();
@@ -324,6 +351,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   });
 
   app.post("/api/sessions/:sessionId/poster/start", (req, res) => {
+    if (!requireTeacher(req, res)) return;
     const result = store.setPosterActive(req.params.sessionId, true);
     if ("error" in result) return res.status(404).json({ error: result.error });
     notifyChange();
@@ -334,6 +362,7 @@ export function createApp(store: SessionStore, opts?: CreateAppOptions) {
   });
 
   app.post("/api/sessions/:sessionId/poster/stop", (req, res) => {
+    if (!requireTeacher(req, res)) return;
     const result = store.setPosterActive(req.params.sessionId, false);
     if ("error" in result) return res.status(404).json({ error: result.error });
     notifyChange();

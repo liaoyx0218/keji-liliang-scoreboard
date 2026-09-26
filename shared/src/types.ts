@@ -1,5 +1,7 @@
 export type Session = {
   id: string;
+  /** 教师大屏专用密钥，不出现在学生链接里 */
+  teacherKey: string;
   status: "active";
   createdAt: string; // ISO
   resetAt: string; // ISO
